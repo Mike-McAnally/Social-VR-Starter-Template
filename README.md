@@ -7,3 +7,10 @@ It is intended to allow me to start projects fast and add new assets to scenes. 
 It has build-in Social VR with capabilities for environment, ocean, 360° orbs teleport, blink teleport, video player, particles, simple-navmesh-constraint, physics.
 A single fixed avatar head and hands is setup.
 Best to read my book and try the other examples first.
+
+open two copies of link in seperate browser tabs
+WASD keys move, left-mouse-drag rotates
+
+https://funbit64.com:3025/template.html
+
+https://funbit64.com:3025/template.html
