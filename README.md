@@ -11,6 +11,5 @@ Best to read my book and try the other examples first.
 open two copies of link in seperate browser tabs
 WASD keys move, left-mouse-drag rotates
 
-https://funbit64.com:3025/template.html
-
-https://funbit64.com:3025/template.html
+<a href="https://funbit64.com:3025/template.html" target="_blank">https://funbit64.com:3025/template.html</a><br>
+<a href="https://funbit64.com:3025/template.html" target="_blank">https://funbit64.com:3025/template.html</a>
