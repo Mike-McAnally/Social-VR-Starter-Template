@@ -1,5 +1,5 @@
 # Social-VR-Starter-Template
-A base template for starting social VR projects.
+My base template for starting social VR projects.
 
 
 This is a work in progress.  There will be many bugs here.
