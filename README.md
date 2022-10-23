@@ -8,7 +8,7 @@ It has build-in Social VR with capabilities for environment, ocean, 360° orbs t
 A single fixed avatar head and hands is setup.
 Best to read my book and try the other examples first.
 
-open two copies of link in seperate browser tabs
+open two copies of link in seperate browser tabs then,
 WASD keys move, left-mouse-drag rotates
 
 <a href="https://funbit64.com:3025/template.html" target="_blank">https://funbit64.com:3025/template.html</a><br>
