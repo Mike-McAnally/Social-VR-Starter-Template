@@ -1,3 +1,5 @@
+<img src="https://funbit64.com:3025/assets/img/templateScreenshot.jpg" />
+
 # Social-VR-Starter-Template
 My base template for starting Social VR projects.
 
