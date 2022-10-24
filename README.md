@@ -9,7 +9,7 @@ A single fixed avatar with head and hands is setup.
 
 DEMO:
 open two copies of link in seperate (Chrome, Firefox, Edge, Meta) browser tabs then,
-WASD keys move, left-mouse-drag rotates
+WASD keys move, left-mouse-drag rotates.  VR headset enabled.  Not ideal for smart phone access, view on desktop/laptop/headset.
 
 <a href="https://funbit64.com:3025/template.html" target="_blank">https://funbit64.com:3025/template.html</a><br>
 <a href="https://funbit64.com:3025/template.html" target="_blank">https://funbit64.com:3025/template.html</a>
