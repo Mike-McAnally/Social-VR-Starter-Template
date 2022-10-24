@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+    <title>Template Navmesh - Loading</title>
+    <meta name="description" content="Description text. by Michael McAnally, October 22, 2022.">
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0, shrink-to-fit=no">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="gray-translucent" />
+
+
+    <script src="/newVRcore1.3/aframe-master.min.js"></script>
+
+    <script src="/newVRcore1.3/aframe-environment-component.min.js"></script>
+
+    <script src="https://recast-api.donmccurdy.com/aframe-inspector-plugin-recast.js"></script>
+
+
+
+  </head>
+
+  <body>
+
+<a-scene inspector-plugin-recast>
+
+      <a-assets>
+
+
+
+        <img crossorigin="anonymous" src="assets/img/play2.png" id="play" >
+        <img crossorigin="anonymous" src="assets/img/pause.png" id="pause" >
+        <img crossorigin="anonymous" src="assets/img/volume-normal.png" id="volume-normal" >
+        <img crossorigin="anonymous" src="assets/img/volume-mute.png" id="volume-mute" >
+        <img crossorigin="anonymous" src="assets/img/seek-back.png" id="seek-back" >
+
+        <img crossorigin="anonymous" id="Grand_opening" src="assets/img/Busy_SF_CAFE_Grand_opening_night.jpg">
+
+        <video crossorigin="anonymous" id="video-src" src="assets/video/makerFinal2.mp4"></video>
+
+
+
+        <a-mixin id="animations" animation__click="property: components.material.material.color; type: color; to: blue; startEvents: click; dur: 500;"></a-mixin>
+        <a-mixin id="blink" blink-controls="button:trigger; rotateOnTeleport:false; cameraRig: #rig; teleportOrigin: #player; collisionEntities:.navmesh;"></a-mixin>
+
+        <!-- Templates -->
+        <!-- As a substitution for a proper avatar we just use a robot head and hands for now --> 
+        <a-asset-item id="RobotHead" src="assets/gltf/avatarHead.glb"></a-asset-item>
+        <a-asset-item id="LHand" src="assets/gltf/leftHandLow.glb"></a-asset-item>
+        <a-asset-item id="RHand" src="assets/gltf/rightHandLow.glb"></a-asset-item>
+        <!-- Avatar -->
+        <template id="rig-template">
+          <a-entity networked-audio-source><!-- <a-box color="#FFF" position="0 1.4 0" material="" networked-video-source="" geometry="" scale="0.325 0.325 0.325"></a-box>  --></a-entity>
+        </template>
+
+        <template id="head-template">
+          <a-entity class="cam" gltf-model="#RobotHead" scale="1 1 1"></a-entity>
+        </template>
+
+        <template id="left-hand-template">
+            <a-entity class="leftController" gltf-model="#LHand" ></a-entity>
+        </template>
+
+        <template id="right-hand-template">
+            <a-entity class="rightController" gltf-model="#RHand" ></a-entity>
+        </template>
+
+        <!-- /Templates -->
+
+  
+      </a-assets>
+
+      <a-entity id="mouseCursor" cursor="rayOrigin: mouse"></a-entity>
+
+
+      <!-- Our Environment -->
+      <a-entity id="env" environment="preset: forest; playArea: 1.2; dressingAmount: 250; dressingUniformScale: true; dressingColor: #248728; ground: hills; groundTexture: none; groundColor: #34711C; groundColor2: #319D06; grid: none; gridColor: #81F995; skyType: gradient; skyColor: #A4CFFA; horizonColor: #95C8FA; fog: .75" shadow></a-entity>
+
+      <a-entity light="type: ambient; intensity: 0.2"></a-entity>
+
+      <!-- A light in the scene casting shadows -->
+      <a-entity light="intensity: 0.5; castShadow: true; shadowCameraLeft: -50; shadowCameraBottom: -50; shadowCameraRight: 50; shadowCameraTop: 50; shadowCameraVisible: false" position="-85.28485 65.36529 -12.29375"></a-entity>
+
+
+      <!-- Create a basic water fountain out of geometric shapes -->
+      <a-cylinder id="cylinder1" position="-1.03368 0.085 0.46317" scale="1.372 0.113 1.372" radius="0.5" height="1.5" color="#E3E3E3" shadow="" material="" geometry="" shadow="receive: true; cast: true"></a-cylinder>
+      <a-cylinder id="cylinder2" position="-1.03368 0.089 0.46317" scale="4.331 -0.011 4.331" radius="0.5" height="1.5" color="#E3E3E3" shadow="" material="" geometry="" shadow="receive: true; cast: true"></a-cylinder>
+      <a-cylinder id="cylinder3" position="-1.03368 0.065 0.46317" scale="4.086 0.113 4.086" radius="0.5" height="1.5" color="#18C7D2" shadow="" material="" geometry="" opacity=".35" shadow="receive: true; cast: true"></a-cylinder>
+      <a-cylinder id="cylinder4" position="-1.03368 0.790 0.46317" scale="0.629 0.950 0.629" radius="0.5" height="1.5" color="#E3E3E3" shadow="" material="" geometry="" shadow="receive: true; cast: true" ></a-cylinder>
+      <a-sphere id="fountian_ball" class="clickable" position="-1.03368 1.64705 0.46317" scale="0.363 0.363 0.363" radius="0.5" height="1.5" color="#E3E3E3" shadow="" material="" geometry="" shadow="receive: true; cast: true" audiohandler></a-sphere>
+      <a-torus position="-1.03368 0.00369 0.46317" rotation="-90 90 -90" color="#E3E3E3" radius="5" radius-tubular="0.1" material="" geometry="radius: 2" shadow="receive: true; cast: true"></a-torus>
+
+
+      <a-plane id="scifiCafeSign" class="clickable" position="-1.039 2.812 8.12176" scale="1.92648 1.43749 1" rotation="0 -162.234 0" material="src: #Grand_opening; color: white; transparent: true; side: double" geometry="" onclick="location.href='https://michael-mcanally.medium.com/my-story-finally-creating-a-open-source-metaverse-virtual-world-social-vr-island-space-with-webxr-c18ecf17da18';"></a-plane>
+
+    </a-scene>
+
+  </body>
+</html>
