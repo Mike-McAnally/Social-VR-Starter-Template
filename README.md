@@ -1,4 +1,5 @@
-https://funbit64.com:3025/assets/img/templateScreenshot.jpg
+
+![templateScreenshot](https://user-images.githubusercontent.com/21044198/197547191-755748fd-4db3-4f92-8a39-e07635c3b612.jpg)
 
 # Social-VR-Starter-Template
 My base template for starting Social VR projects.
