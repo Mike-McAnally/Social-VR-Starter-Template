@@ -7,7 +7,7 @@ My base template for starting Social VR projects.
 
 This is a work in progress!  There will be bugs here.
 It is intended to allow me to start projects fast and add new assets to scenes. No explanation will be given how to use this. Best to read my book and try the other examples first. 
-It has build-in multi-user Social VR with capabilities for environment, ocean, 360° orbs teleport, blink teleport, video player, particles, simple-navmesh-constraint, physics.
+It has build-in multi-user Social VR with capabilities (setup on your own seperate VR server, see networked-aframe) for environment, ocean, 360° orbs teleport, blink teleport, video player, particles, simple-navmesh-constraint, physics.
 A single fixed avatar with head and hands is setup.  https://michael-mcanally.medium.com/corrections-to-examples-in-my-free-pdf-book-on-social-vr-for-the-open-metaverse-9cb1a8f7d86c
 
 DEMO:
