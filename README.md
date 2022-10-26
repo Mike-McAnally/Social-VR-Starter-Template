@@ -11,7 +11,7 @@ It has build-in multi-user Social VR with capabilities (setup on your own sepera
 A single fixed avatar with head and hands is setup.  https://michael-mcanally.medium.com/corrections-to-examples-in-my-free-pdf-book-on-social-vr-for-the-open-metaverse-9cb1a8f7d86c
 
 DEMO:
-open two copies of link below in seperate (Chrome, Firefox, Edge, Meta) browser tabs then,
+open two copies of link below in seperate (Chrome, Firefox, Edge, Meta) browser tabs then, see INSTRUCTIONS button,
 WASD keys move, left-mouse-drag rotates.  VR headset enabled.  Not ideal for smart phone access, view on desktop/laptop/headset. My special thanks to all listed in the credits of my book for many parts of this source code, it is a frankenstien monster sewn togther and brought to life!
 
 <a href="https://funbit64.com:3025/template.html" target="_blank">https://funbit64.com:3025/template.html</a><br>
