@@ -1,1 +1,1 @@
-You will need to provide your own video source on line
+You will need to provide your own video media on line 465 in the template.html file
