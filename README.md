@@ -18,3 +18,6 @@ WASD keys move, left-mouse-drag rotates.  VR headset enabled.  Not ideal for sma
 
 
 ![templateNAVMESHScreenshot](https://user-images.githubusercontent.com/21044198/197547560-49bdbbb6-0e29-419c-bcfb-f19a28d2b0a2.jpg)
+
+See: Funbit64.net for latest examples
+https://funbit64.net/
