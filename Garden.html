@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+    <title>Garden - Loading</title>
+    <meta name="description" content="Multi-user Social VR two level garden building scene, with positional audio using Networked-Aframe. Combines avatar, movement, teleport, selection, simple-navmesh and particle system.">
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0, shrink-to-fit=no">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="gray-translucent" />
+    <script>
+      // WebXR requires https: to work so ensure redirected if needed.
+      if (
+        location.hostname !== "localhost" &&
+        window.location.protocol === "http:"
+      )
+        window.location.protocol = "https:";
+    </script>
+
+    <!-- the AFrame library and 3rd party components -->
+
+    <script src="/newVRcore1.3/aframe-master.min.js"></script>
+
+    <script src="/newVRcore1.3/socket.io.slim.js"></script>
+    <script src="/easyrtc/easyrtc.js"></script>
+    <script src="/dist/networked-aframe.js"></script>
+
+    <script src="/newVRcore1.3/aframe-environment-component.min.js"></script>
+    <script>window.module = {exports:{}}</script><!-- Dirty hack to get the sphere collider loading :-( -->
+    <script src="/newVRcore1.3/sphere-collider.js"></script>
+    <script src="/newVRcore1.3/aframe-extras.controls.min.js"></script>
+    <script src="/newVRcore1.3/physx.release.js"></script>
+    <script src="/newVRcore1.3/physics.js"></script>
+    <script src="/newVRcore1.3/aframe-blink-controls.min.js"></script>
+
+    <!-- Fix for particle system with aframe 1.3.0 found here https://geeksrepos.com/IdeaSpaceVR/aframe-particle-system-component/issues/66  -->
+    <script src="js/aframe-particle-system-component.min.js"></script>
+
+    <script src="/js/spawn-in-circle.component.js"></script>
+    <script src="/js/info-message3.js"></script>
+    <script type="text/javascript">
+
+      // see issue https://github.com/networked-aframe/networked-aframe/issues/267
+      NAF.schemas.getComponentsOriginal = NAF.schemas.getComponents;
+
+      NAF.schemas.getComponents = (template) => {
+        if (!NAF.schemas.hasTemplate('#head-template')) {
+          NAF.schemas.add({
+            template: '#head-template',
+            components: [
+              'position',
+              'rotation',
+              {
+                selector: '.head',
+                component: 'material',
+                property: 'color'
+              }
+            ]
+           });
+
+        }
+   
+        const components = NAF.schemas.getComponentsOriginal(template);
+        return components;
+      };
+
+
+/* global AFRAME, THREE */
+
+/* Constrain an object to a navmesh, for example place this element after wasd-controls like so:
+`wasd-controls navmesh-physics="#navmesh-el"`
+*/
+AFRAME.registerComponent('simple-navmesh-constraint', {
+  schema: {
+    enabled: {
+      default: true
+    },
+    navmesh: {
+      default: ''
+    },
+    fall: {
+      default: 0.5
+    },
+    height: {
+      default: 1.6
+    },
+    exclude: {
+      default: ''
+    },
+    xzOrigin: {
+      default: ''
+    }
+  },
+  
+  update: function () {
+    this.lastPosition = null;
+    this.excludes = this.data.exclude ? Array.from(document.querySelectorAll(this.data.exclude)):[];
+    const els = Array.from(document.querySelectorAll(this.data.navmesh));
+    if (els === null) {
+      console.warn('navmesh-physics: Did not match any elements');
+      this.objects = [];
+    } else {
+      this.objects = els.map(el => el.object3D).concat(this.excludes.map(el => el.object3D));
+    }
+    this.xzOrigin = this.data.xzOrigin ? this.el.querySelector(this.data.xzOrigin) : this.el;
+  },
+
+  tick: (function () {
+    const nextPosition = new THREE.Vector3();
+    const tempVec = new THREE.Vector3();
+    const scanPattern = [
+      [0,1], // Default the next location
+      [0,0.5], // Check that the path to that location was fine
+      [30,0.4], // A little to the side shorter range
+      [-30,0.4], // A little to the side shorter range
+      [60,0.2], // Moderately to the side short range
+      [-60,0.2], // Moderately to the side short range
+      [80,0.06], // Perpendicular very short range
+      [-80,0.06], // Perpendicular very short range
+    ];
+    const down = new THREE.Vector3(0,-1,0);
+    const raycaster = new THREE.Raycaster();
+    const gravity = -1;
+    const maxYVelocity = 0.5;
+    const results = [];
+    let yVel = 0;
+    let firstTry = true;
+    
+    return function tick(time, delta) {
+      if (this.data.enabled === false) return;
+      if (this.lastPosition === null) {
+        firstTry = true;
+        this.lastPosition = new THREE.Vector3();
+        this.xzOrigin.object3D.getWorldPosition(this.lastPosition);
+        if (this.data.xzOrigin) this.lastPosition.y -= this.xzOrigin.object3D.position.y;
+      }
+      
+      const el = this.el;
+      if (this.objects.length === 0) return;
+
+      this.xzOrigin.object3D.getWorldPosition(nextPosition);
+      if (this.data.xzOrigin) nextPosition.y -= this.xzOrigin.object3D.position.y;
+      if (nextPosition.distanceTo(this.lastPosition) <= 0.01) return;
+      
+      let didHit = false;
+      // So that it does not get stuck it takes as few samples around the user and finds the most appropriate
+      scanPatternLoop:
+      for (const [angle, distance] of scanPattern) {
+        tempVec.subVectors(nextPosition, this.lastPosition);
+        tempVec.applyAxisAngle(down, angle*Math.PI/180);
+        tempVec.multiplyScalar(distance);
+        tempVec.add(this.lastPosition);
+        tempVec.y += maxYVelocity;
+        tempVec.y -= this.data.height;
+        raycaster.set(tempVec, down);
+        raycaster.far = this.data.fall > 0 ? this.data.fall + maxYVelocity : Infinity;
+        raycaster.intersectObjects(this.objects, true, results);
+        
+        if (results.length) {
+          // If it hit something we want to avoid then ignore it and stop looking
+          for (const result of results) {
+            if(this.excludes.includes(result.object.el)) {
+              results.splice(0);
+              continue scanPatternLoop;
+            }
+          }
+          const hitPos = results[0].point;
+          results.splice(0);
+          hitPos.y += this.data.height;
+          if (nextPosition.y - (hitPos.y - yVel*2) > 0.01) {
+            yVel += Math.max(gravity * delta * 0.001, -maxYVelocity);
+            hitPos.y = nextPosition.y + yVel;
+          } else {
+            yVel = 0;
+          }
+          tempVec.copy(hitPos);
+          this.xzOrigin.object3D.parent.worldToLocal(tempVec);
+          tempVec.sub(this.xzOrigin.object3D.position);
+          if (this.data.xzOrigin) tempVec.y += this.xzOrigin.object3D.position.y;
+          this.el.object3D.position.add(tempVec);
+          
+          this.lastPosition.copy(hitPos);
+          didHit = true;
+          break;
+        }
+        
+      }
+      
+      if (didHit) {
+        firstTry = false;
+      }
+      
+      if (!firstTry && !didHit) {
+        this.el.object3D.position.copy(this.lastPosition);
+        this.el.object3D.parent.worldToLocal(this.el.object3D.position);
+      }
+    }
+  }())
+});
+
+
+      // Handles activating and toggle on-off audio control for browser
+      AFRAME.registerComponent('audiohandler', {
+        init:function() {
+            let playing = false;
+            let audio = document.querySelector("#playAudio");
+            this.el.addEventListener('click', () => {
+
+                if(!playing) {
+                    audio.play();
+                } else {
+                    audio.pause();
+                    audio.currentTime = 0;
+                }
+                playing = !playing;
+            });
+        }
+      });
+
+
+     AFRAME.registerComponent('navigate', {
+        schema: {url: {default: ''}},
+        init: function () {
+        var data = this.data;
+            this.el.addEventListener('click', function () {
+                window.location = data.url;
+            });
+        }
+     });
+
+    </script>
+
+    <!-- Video Player Styling -->
+    <style type="text/css">
+      #video-permission {
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background: white;
+          z-index: 10000;
+          display: none;
+      }
+      #video-permission-button {
+        position: fixed;
+        top: calc(50% - 1em);
+        left: calc(50% - 60px);
+        width: 120px;
+        height: 2em;
+      }
+    </style>
+
+  </head>
+
+  <body>
+    <div id="video-permission">
+    <button id="video-permission-button">Allow VR Video</button>
+    </div>
+        <button id="playButton" type="button">Play Sound</button>
+    <audio id="playAudio" autoplay loop>
+        <source src="assets/mp3/fountainWater.mp3" type="audio/mpeg">
+    </audio>
+    <a-scene
+      networked-scene="room: Garden; debug: true; adapter: easyrtc; audio: true;"
+      physx="autoLoad: true; delay: 1000; wasmUrl: https://stemkoski.github.io/A-Frame-Examples/js/physx.release.wasm; useDefaultScene: false;"
+      webxr="overlayElement:#dom-overlay;"
+      background="color:skyblue;"
+      renderer="antialias:true;highRefreshRate:true;alpha:true;physicallyCorrectLights:true;colorManagement:true;exposure:2;toneMapping:ACESFilmic;"
+      shadow="type: pcfsoft"
+      vr-mode-ui="arEnabled: false"
+      raycaster="objects: .raycastable, .clickable, .fountian_ball, .cylinder4, a-link, a-sphere">
+    
+      <a-assets>
+         <!-- Hex Rooms -->
+         <a-asset-item id="MeetingComplex1" src="assets/gltf/HexRoomMosaicA.glb"></a-asset-item>
+         <a-asset-item id="MeetingComplex2" src="assets/gltf/HexRoomMosaicD.glb"></a-asset-item>
+         <a-asset-item id="MeetingComplex3" src="assets/gltf/HexRoomMosaicC.glb"></a-asset-item>
+
+         <!-- Tree models -3D GltF models -->
+         <a-asset-item id="Tree1" src="assets/gltf/NormalTree_1.glb"></a-asset-item>
+         <a-asset-item id="Tree2" src="assets/gltf/NormalTree_2.glb"></a-asset-item>
+        
+         <a-asset-item id="Bush_Flowers2" src="assets/gltf/Bush_Flowers2.glb"></a-asset-item>
+         <a-asset-item id="Grass" src="assets/gltf/Grass.glb"></a-asset-item>
+
+         <a-asset-item id="navmesh-glb" src="assets/gltf/navmeshHexoplex2.glb"></a-asset-item>
+
+        <a-mixin id="animations" animation__click="property: components.material.material.color; type: color; to: blue; startEvents: click; dur: 500;"></a-mixin>
+        <a-mixin id="blink" blink-controls="button:trigger; rotateOnTeleport:false; cameraRig: #rig; teleportOrigin: #player; collisionEntities:.navmesh;"></a-mixin>
+
+        <!-- Templates -->
+        <a-asset-item id="RobotHead" src="assets/gltf/avatarHead.glb"></a-asset-item>
+        <a-asset-item id="LHand" src="assets/gltf/leftHandLow.glb"></a-asset-item>
+        <a-asset-item id="RHand" src="assets/gltf/rightHandLow.glb"></a-asset-item>
+        <!-- Avatar -->
+        <template id="rig-template">
+          <a-entity networked-audio-source><!-- <a-box color="#FFF" position="0 1.4 0" material="" networked-video-source="" geometry="" scale="0.325 0.325 0.325"></a-box>  --></a-entity>
+        </template>
+
+        <template id="head-template">
+          <a-entity class="cam" gltf-model="#RobotHead" scale="1 1 1"></a-entity>
+        </template>
+
+        <template id="left-hand-template">
+            <a-entity class="leftController" gltf-model="#LHand" ></a-entity>
+        </template>
+
+        <template id="right-hand-template">
+            <a-entity class="rightController" gltf-model="#RHand" ></a-entity>
+        </template>
+
+        <!-- /Templates -->
+
+          <a-asset id="Sign1" src="assets/img/spacecarouselVR.png"></a-asset>
+          <a-asset id="Sign2" src="assets/img/myIsland.png"></a-asset>
+          <a-asset id="Sign3" src="assets/img/myArtGallery.png"></a-asset>
+          <a-asset id="Sign5" src="assets/img/myOfficeVR.png"></a-asset>
+
+          <a-asset-item id="Sofa3seat" src="assets/gltf/GreySofa.glb"></a-asset-item>
+          <a-asset-item id="SwivelChair" src="assets/gltf/chairLeatherAluminum.glb"></a-asset-item>
+          <a-asset-item id="Table1" src="assets/gltf/tableFixed14.glb"></a-asset-item>
+
+          <img crossorigin="anonymous" src="assets/img/play2.png" id="play" >
+          <img crossorigin="anonymous" src="assets/img/pause.png" id="pause" >
+          <img crossorigin="anonymous" src="assets/img/volume-normal.png" id="volume-normal" >
+          <img crossorigin="anonymous" src="assets/img/volume-mute.png" id="volume-mute" >
+          <img crossorigin="anonymous" src="assets/img/seek-back.png" id="seek-back" >
+
+          <video crossorigin="anonymous" id="video-src" src="assets/video/makerFinal2.mp4"></video>
+
+      </a-assets>
+
+      <a-entity id="mouseCursor" cursor="rayOrigin: mouse"></a-entity>
+      <a-gltf-model class="navmesh" src="#navmesh-glb" visible="false" nav-mesh></a-gltf-model>
+
+      <a-entity id="rig" spawn-in-circle="radius:3" networked="template:#rig-template;" simple-navmesh-constraint="navmesh:.navmesh;fall:0.5;height:0;exclude:.navmesh-hole;" movement-controls="speed:0.15;camera:#player;">
+        <!-- camera -->
+        <a-entity id="player" camera="near:0.01;" look-controls position="0 1.65 0" networked="template:#head-template" visible="false">
+
+        </a-entity>
+
+          <a-entity id="leftHand" hand-controls="hand: left;" networked="template:#left-hand-template; handModelStyle: lowPoly; color: #15ACCF" mixin="blink">
+          </a-entity>
+
+          <a-entity id="rightHand" hand-controls="hand: right;" networked="template:#right-hand-template; handModelStyle: lowPoly; color: #15ACCF" laser-controls raycaster=";showLine:true; lineColor:#7cfc00; far: 10; interval: 0; objects: [html], .raycastable, .clickable, .fountian_ball, .cylinder4, a-link;">
+          </a-entity>
+
+      </a-entity>
+
+      <a-entity position="0 0.085 0" environment="preset: forest; playArea: 1.2; dressingAmount: 250; dressingUniformScale: true; dressingColor: #248728; ground: hills; groundTexture: none; groundColor: #34711C; groundColor2: #319D06; grid: none; gridColor: #81F995; skyType: gradient; skyColor: #A4CFFA; horizonColor: #95C8FA; fog: .75" shadow="receive: true" active="false" visible="true"></a-entity>
+
+      <a-entity light="type: ambient; intensity: 0.35"></a-entity>
+
+      <!-- A light in the scene casting shadows -->
+      <a-entity id="lightshadow" light="intensity: 0.25; castShadow: true; shadowCameraLeft: -50; shadowCameraBottom: -50; shadowCameraRight: 50; shadowCameraTop: 50; shadowCameraVisible: false" position="-11.13389 32.24407 -0.84779"></a-entity>
+
+      <!-- Hex Buildings -->
+      <a-entity id="MeetingBuildings1" gltf-model="#MeetingComplex1" position="-1.17637 0.033 14.73588" rotation="0 0 0" scale="0.02 0.02 0.02" shadow="cast: true; receive: false;" ></a-entity>
+      <a-entity id="MeetingBuildings2" gltf-model="#MeetingComplex2" position="11.83198 0.033 -9.19739" rotation="0 120 0" scale="0.02 0.02 0.02" shadow="cast: true; receive: false;" ></a-entity>
+      <a-entity id="MeetingBuildings3" gltf-model="#MeetingComplex3" position="-14.30592 0.033 -9.21925" rotation="0 -120 0" scale="0.02 0.02 0.02" shadow="cast: true; receive: false;" ></a-entity>
+
+      <!-- Garden objects -->
+      <a-entity id="NormalTree1" gltf-model="#Tree1" position="7.65583 -0.0164 4.18549" scale="0.01 0.01 0.01" rotation="-180.000 45 -180.000" shadow="receive: false"></a-entity>
+      <a-entity id="NormalTree2" gltf-model="#Tree2" position="-10.17978 -0.0164 3.90463" scale="0.01 0.01 0.01" rotation="-180.000 93.153 -180.000" shadow="receive: false"></a-entity>
+      <a-entity id="NormalTree3" gltf-model="#Tree1" position="-0.880 -0.016 -13.695" scale="0.01 0.01 0.01" rotation="-180.000 0 -180.000" shadow="receive: false"></a-entity>
+      <a-entity id="Bush_Flowers1" gltf-model="#Bush_Flowers2" position="-5.63281 0.03739 3.07624" scale="0.01 0.01 0.01" shadow="receive: false"></a-entity>
+      <a-entity id="Bush_Flowers2" gltf-model="#Bush_Flowers2" position="2.18231 0.03739 3.51312" scale="0.01 0.01 0.01" shadow="receive: false"></a-entity>
+      <a-entity id="Bush_Flowers3" gltf-model="#Bush_Flowers2" position="-1.15672 0.03739 -4.37366" scale="0.01 0.01 0.01" shadow="receive: false"></a-entity>
+      <a-entity id="Grass_Clump1" gltf-model="#Grass" position="-1.00962 0.03739 1.71005" rotation="0 -34.903 0" scale="0.01 0.01 0.01" shadow="receive: false"></a-entity>
+      <a-entity id="Grass_Clump2" gltf-model="#Grass" position="6.81458 0.03739 4.67095" scale="0.01 0.01 0.01" shadow="receive: false"></a-entity>
+      <a-entity id="Grass_Clump3" gltf-model="#Grass" position="-10.79057 0.03739 3.55366" scale="0.01 0.01 0.01" shadow="receive: false"></a-entity>
+
+      <!-- Create a basic water fountain out of geometric shapes -->
+      <a-cylinder id="cylinder1" position="-1.03368 0.085 0.46317" scale="1.372 0.113 1.372" radius="0.5" height="1.5" color="#E3E3E3" shadow="" material="" geometry="" shadow="receive: true; cast: true"></a-cylinder>
+      <a-cylinder id="cylinder2" position="-1.03368 0.089 0.46317" scale="4.331 -0.011 4.331" radius="0.5" height="1.5" color="#E3E3E3" shadow="" material="" geometry="" shadow="receive: true; cast: true"></a-cylinder>
+      <a-cylinder id="cylinder3" position="-1.03368 0.065 0.46317" scale="4.086 0.113 4.086" radius="0.5" height="1.5" color="#18C7D2" shadow="" material="" geometry="" opacity=".35" shadow="receive: true; cast: true"></a-cylinder>
+      <a-cylinder id="cylinder4" position="-1.03368 0.790 0.46317" scale="0.629 0.950 0.629" radius="0.5" height="1.5" color="#E3E3E3" shadow="" material="" geometry="" shadow="receive: true; cast: true" ></a-cylinder>
+      <a-sphere id="fountian_ball" class="clickable" position="-1.03368 1.64705 0.46317" scale="0.363 0.363 0.363" radius="0.5" height="1.5" color="#E3E3E3" shadow="" material="" geometry="" shadow="receive: true; cast: true" audiohandler></a-sphere>
+      <a-torus position="-1.03368 0.00369 0.46317" rotation="-90 90 -90" color="#E3E3E3" radius="5" radius-tubular="0.1" material="" geometry="radius: 2" shadow="receive: true; cast: true"></a-torus>
+      <!-- water  -->
+      <a-entity id="water" position="-1.03368 1.629 0.46317" particle-system="color:#000, #FFF;duration:NaN;velocitySpread:2 3 2;velocityValue:0 9 0;accelerationSpread:1 0 1;particleCount:25;maxAge:1.2;texture: https://funbit64.com:3025/assets/img/dot2.png" visible="true"></a-entity>
+
+      <!-- Ramps -->
+      <a-box id="hex-ramp" position="-14.23136 3.50576 14.76367" rotation="-60 -90 -90" scale="3.58635 0.868 0.143" width="4" height="4" color="#FFFFFF" shadow="" material="" geometry="" opacity=".35"></a-box>
+      <a-box id="hex-between1" position="5.37633 7.06669 2.78422" rotation="-90 -120 0" scale="3.38436 0.868 0.143" width="4" height="4" color="#FFFFFF" shadow="" material="" geometry="" opacity=".35"></a-box>
+      <a-box id="hex-between2" position="-1.238 7.06659 -9.05965" rotation="-90 -180 0" scale="3.30512 0.868 0.143" width="4" height="4" color="#FFFFFF" shadow="" material="" geometry="" opacity=".35"></a-box>
+
+      <a-plane id="SpaceCarouselSign" class="clickable" position="5.14073 2.001 14.981" scale="2.318 1.293 1" rotation="0 -90 0" material="src: #Sign1; side: double" geometry="" navigate="url: https://funbit64.com/drupal/index.php/node/13" ></a-plane>
+
+      <a-plane id="myIslandSign" class="clickable" position="-4.615 2.001 19.996" scale="2.318 1.293 1" rotation="0 150 0" material="src: #Sign2; side: double" geometry="" navigate="url: https://funbit64.com/drupal/index.php/node/4" ></a-plane>
+
+      <a-plane id="myArtGallerySign" class="clickable" position="1.610 2.001 20.417" scale="2.318 1.293 1" rotation="0 -150 0" material="src: #Sign3; side: double" geometry="" navigate="url: https://funbit64.com/drupal/index.php/node/3" ></a-plane>
+
+<!--      <a-plane id="solarsystemVRXRSign" class="clickable" position="5.14073 2.001 14.981" scale="2.318 1.293 1" rotation="0 -90 0" material="src: #Sign4; side: double" geometry="" navigate="url: https://funbit64.com/drupal/index.php/node/13" ></a-plane>  -->
+
+      <a-plane id="myOfficeVRSign" class="clickable" position="2.816 2.001 9.668" scale="2.318 1.293 1" rotation="0 -30 0" material="src: #Sign5; side: double" geometry="" navigate="url: https://funbit64.com/drupal/index.php/node/2" ></a-plane>
+
+      <!-- position furniture  -->
+      <a-entity id="Office_Swivel_Chair1" gltf-model="#SwivelChair" position="-13.522 0.192 -10.991" rotation="0 -51.412 0" scale="0.014 0.014 0.014" shadow visible=""></a-entity>
+      <a-entity id="Office_Swivel_Chair2" gltf-model="#SwivelChair" position="-15.247 0.192 -7.474" rotation="0 108.391 0" scale="0.014 0.014 0.014" shadow="" visible=""></a-entity>
+      <a-entity id="Office_Swivel_Chair3" gltf-model="#SwivelChair" position="-15.556 0.192 -10.407" rotation="0 58.518 0" scale="0.014 0.014 0.014" shadow="" visible=""></a-entity>
+      <a-entity id="Office_Swivel_Chair4" gltf-model="#SwivelChair" position="-12.618 0.192 -8.670" rotation="0 -121.394 0" scale="0.014 0.014 0.014" shadow="" visible=""></a-entity>
+
+      <a-entity id="MeetingTable" gltf-model="#Table1" position="-14.32485 0.189 -9.118" rotation="0 -180 0" scale="0.000075 0.000035 0.000075" shadow="" visible=""></a-entity>
+
+      <a-entity id="Sofawith3seats" gltf-model="#Sofa3seat" position="12.507 -0.006 -8.226" rotation="0 -150 0" scale="0.0005 0.0005 0.0005" shadow=""></a-entity>
+
+      <a-entity id="movieScreenControls" position="11.710 0.835 -9.650" rotation="0 30 0" scale="1.5 1.5 1">
+      <!-- Controls for display of video screen, seems to work nicely, javascript below </scene> tag below -->
+     
+          <!-- MEDIAS HOLDER -->
+          <a-sound id="alert-sound" src="src: url(assets/wav/action.wav)" autoplay="false" position="0 0 0"></a-sound>
+          <a-video id="video-screen" src="#video-src" position="-0.02132 1.89195 -3.56798" rotation="0 0 0" scale="0.50761 0.49394 1" width="8" height="4" rotation="0 0 0" visible="true"></a-video>
+          <!-- END MEDIAS HOLDER -->
+
+          <!-- CONTROLS -->
+          <a-image class="clickable" id="control-back" width="0.4" height="0.4" src="#seek-back" position="-0.42425 0.565 -3.47602" rotation="0 1.2570694025170261 0" visible="false" scale="0.85 0.85 0.85"></a-image>
+          <a-image class="clickable" id="control-play" width="0.4" height="0.4" src="#play" position="-0.00457 0.565 -3.47602" rotation="0 1.2570694025170261 0"></a-image>
+          <a-image class="clickable" id="control-volume" width="0.4" height="0.4" src="#volume-mute" position="0.38786 0.565 -3.47602" rotation="0 1.2570694025170261 0" visible="false" scale="0.75 0.75 0.75"></a-image>
+          <!-- END CONTROLS -->
+
+          <!-- PROGRESSBAR -->
+          <a-entity id="progress-bar" geometry="primitive:plane;height:0.1;width:4" material="opacity:0;transparent:true;visible:false" position="-0.00457 0.835 -3.47602" rotation="0 1.2570694025170261 0" >
+            <a-plane id="progress-bar-track" width="4" height="0.1" color="gray" position="" opacity="0.2" material="" visible="false" geometry=""></a-plane>
+            <a-plane id="progress-bar-fill" width="2.496982785433659" height="0.1" color="#7198e5" position="-0.7515086072831705 0 0" geometry="" visible="false" material=""></a-plane>
+          </a-entity>
+          <!-- END PROGRESSBAR -->
+
+      </a-entiny>
+    </a-scene>
+    <div class="actions">
+      <button id="mic-btn" type="button" class="button">Mute Mic</button>
+    </div>
+
+    <script>
+
+      NAF.schemas.add({
+        template: '#left-hand-template',
+        components: [
+          'position',
+          'rotation',
+        ]
+      });
+      NAF.schemas.add({
+        template: '#right-hand-template',
+        components: [
+          'position',
+          'rotation',
+        ]
+      });
+
+      // Mic status
+      let micEnabled = true;
+      // Mic button element
+      const micBtnEle = document.getElementById('mic-btn');
+
+      // Called by Networked-Aframe when connected to server
+      function onConnect() {
+        console.log('onConnect', new Date());
+
+        // Handle mic button click (Mute and Unmute)
+        micBtnEle.addEventListener('click', function () {
+          NAF.connection.adapter.enableMicrophone(!micEnabled);
+          micEnabled = !micEnabled;
+          micBtnEle.textContent = micEnabled ? 'Mute Mic' : 'Unmute Mic';
+        });
+      }
+
+      window.onload = function() {
+        var context = new AudioContext();
+      }
+
+      document.querySelector('button').addEventListener('click', function() {
+        context.resume().then(() => {
+        console.log('Playback resumed successfully');
+        });
+      });
+
+      var AVideoPlayer = function() {
+      // Vals
+      this.duration         = 0;
+      this.current_progress = 0;
+      this.progressWidth    = 4;
+      this.paused           = true;
+      // Elems
+      this.elProgressBar   = null;
+      this.elProgressTrack = null;
+      this.elProgressFill  = null;
+      this.elAlertSound    = null;
+      this.elVideo         = null;
+      this.elVideoScreen   = null;
+      this.elControlBack   = null;
+      this.elControlPlay   = null;
+      this.elControlVolume = null;
+      this._initElements = function() {
+        this.elProgressBar   = document.getElementById('progress-bar');
+        this.elProgressTrack = document.getElementById('progress-bar-track');
+        this.elProgressFill  = document.getElementById('progress-bar-fill');
+        this.elAlertSound    = document.getElementById('alert-sound');
+        this.elVideo         = document.getElementById('video-src');
+        this.elVideoScreen   = document.getElementById('video-screen');
+        this.elControlBack   = document.getElementById('control-back');
+        this.elControlPlay   = document.getElementById('control-play');
+        this.elControlVolume = document.getElementById('control-volume');
+      }
+      /**
+      * PROGRESS
+      */
+      this.setProgress = function(progress) {
+        var new_progress = this.progressWidth*progress;
+        this._setProgressWidth(new_progress);
+        var progress_coord = this._getProgressCoord();
+        if (progress_coord != undefined) {
+         progress_coord.x = -(this.progressWidth-new_progress)/2;
+         this._setProgressCoord(progress_coord);
+        }
+      }
+      this._getProgressCoord = function() {
+        return AFRAME.utils.coordinates.parse(this.elProgressFill.getAttribute("position"))
+      }
+      this._getProgressWidth = function() {
+        return parseFloat(this.elProgressFill.getAttribute("width"));
+      }
+      this._setProgressCoord = function(coord) {
+        this.elProgressFill.setAttribute("position", coord);
+      }
+      this._setProgressWidth = function(width) {
+        this.elProgressFill.setAttribute("width", width);
+      }
+      /*
+      * UI SETTERS
+      */
+      this.isProgressBarVisible = function(isVisible) {
+        this.elProgressTrack.setAttribute("visible", isVisible);
+        this.elProgressFill.setAttribute("visible", isVisible);
+      }
+      this.isControlVisible = function(isVisible) {
+        this.elControlBack.setAttribute("visible", isVisible);
+        this.elControlVolume.setAttribute("visible", isVisible);
+        this.elVideoScreen.setAttribute("visible", isVisible);
+      }
+      /*
+      * EVENTS
+      */
+      this._addPlayerEvents = function() {
+        var that = this;
+        this.elVideo.pause();
+        this.elVideo.onplay = function() {
+          that.duration = this.duration;
+        }
+        this.elVideo.ontimeupdate = function() {
+          if (that.duration > 0) {
+            that.current_progress = this.currentTime/that.duration;
+          }
+          that.setProgress(that.current_progress);
+        }
+      }
+      this._addControlsEvent = function() {
+        var that = this;
+        this.elControlPlay.addEventListener('click', function () {
+          that._playAudioAlert();
+          if (that.elVideo.paused) {
+            this.setAttribute('src', '#pause');
+            that.elVideo.play();
+            that.paused = false;
+            that.isProgressBarVisible(true);
+            that.isControlVisible(true);
+          } else {
+            this.setAttribute('src', '#play');
+            that.elVideo.pause();
+            that.paused = true;
+            that.isProgressBarVisible(false);
+            that.isControlVisible(false);
+         }
+        });
+        this.elControlVolume.addEventListener('click', function () {
+          that._playAudioAlert();
+          if (that.elVideo.muted) {
+            that.elVideo.muted = false;
+            this.setAttribute('src', '#volume-normal');
+          } else {
+            that.elVideo.muted = true;
+            this.setAttribute('src', '#volume-mute');
+          }
+        });
+        this.elControlBack.addEventListener('click', function () {
+          that._playAudioAlert();
+          that.elVideo.currentTime = 0;
+        });
+      }
+      this._addProgressEvent = function() {
+        var that = this;
+        this.elProgressBar.addEventListener('click', function (e) {
+          if (e.detail == undefined || e.detail.intersection == undefined || that.duration === 0) {
+            return;
+          }
+          let seekedPosition = (e.detail.intersection.point.x+(that.progressWidth/2))/that.progressWidth;
+          try {
+            let seekedTime = seekedPosition*that.duration;
+            that.elVideo.currentTime = seekedTime;
+          } catch (e) {
+          }
+        });
+      }
+      this._playAudioAlert = function() {
+        if (this.elAlertSound.components !== undefined && this.elAlertSound.components.sound !== undefined) {
+         this.elAlertSound.components.sound.playSound();
+        }
+      }
+      /**
+      * MOBILE PATCH TO PLAY VIDEO
+      */
+      this._mobileFriendly = function() {
+        if (AFRAME.utils.device.isMobile()) {
+          var that = this;
+          let video_permission        = document.getElementById('video-permission');
+         let video_permission_button = document.getElementById('video-permission-button');
+          video_permission.style.display = 'block';
+          video_permission_button.addEventListener("click", function() {
+            video_permission.style.display = 'none';
+            that.elVideo.play();
+            that.elVideo.pause();
+          }, false);
+        }
+      }
+      this.init = function() {
+        this._initElements();
+        //this._determinateProgressWidth();
+        this.setProgress(this.current_progress);
+        this._addPlayerEvents();
+        this._addControlsEvent();
+        this._addProgressEvent();
+        this._mobileFriendly();
+      }
+      this.init();
+    }
+      let scene = document.querySelector('a-scene');
+      var cursor = document.querySelector('a-cursor');
+      /**
+      * CINEMA MODE
+      */
+      scene.lightOff = function() {
+        scene.islightOn = true;
+        scene.removeAttribute('animation__fogback');
+        scene.setAttribute('animation__fog', "property: fog.color; to: #0c192a; dur: 800; easing: easeInQuad;");
+      }
+      scene.lightOn = function() {
+        scene.islightOn = false;
+        scene.removeAttribute('animation__fog');
+        scene.setAttribute('animation__fogback', "property: fog.color; to: #dbdedb; dur: 800");
+      }
+      /**
+      * AVideoPlayer
+      */
+      var videoPlayer = new AVideoPlayer();
+      document.querySelector('#control-play').addEventListener('click', function () {
+        if (videoPlayer.paused) {
+          scene.lightOn()
+        } else {
+          scene.lightOff();
+        }
+      });
+      
+    </script>
+  </body>
+</html>

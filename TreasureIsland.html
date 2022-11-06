@@ -1,0 +1,1054 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+    <title>Treasure Island - Loading 50 seconds</title>
+    <meta name="description" content="My Treasure Island Art VR Gallery with Meeting and Video Complex by Michael McAnally, September 3, 2022.">
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0, shrink-to-fit=no">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="gray-translucent" />
+    <script>
+      // WebXR requires https: to work so ensure redirected if needed.
+      if (
+        location.hostname !== "localhost" &&
+        window.location.protocol === "http:"
+      )
+        window.location.protocol = "https:";
+    </script>
+
+    <!-- the AFrame library and 3rd party components -->
+
+    <script src="/newVRcore1.3/aframe-master.min.js"></script>
+
+    <script src="/newVRcore1.3/socket.io.slim.js"></script>
+    <script src="/easyrtc/easyrtc.js"></script>
+    <script src="/dist/networked-aframe.js"></script>
+
+    <script>window.module = {exports:{}}</script><!-- Dirty hack to get the sphere collider loading :-( -->
+    <script src="/newVRcore1.3/sphere-collider.js"></script>
+    <script src="/newVRcore1.3/aframe-extras.controls.min.js"></script>
+    <script src="/newVRcore1.3/physx.release.js"></script>
+    <script src="/newVRcore1.3/physics.js"></script>
+    <script src="/newVRcore1.3/aframe-blink-controls.min.js"></script>
+
+    <!-- Fix for particle system with aframe 1.3.0 found here https://geeksrepos.com/IdeaSpaceVR/aframe-particle-system-component/issues/66  -->
+    <script src="js/aframe-particle-system-component.min.js"></script>
+
+    <script src="/js/spawn-in-circle.component.js"></script>
+    <script src="/js/info-message3.js"></script>
+    <script type="text/javascript">
+
+      // see issue https://github.com/networked-aframe/networked-aframe/issues/267
+      NAF.schemas.getComponentsOriginal = NAF.schemas.getComponents;
+
+      NAF.schemas.getComponents = (template) => {
+        if (!NAF.schemas.hasTemplate('#head-template')) {
+          NAF.schemas.add({
+            template: '#head-template',
+            components: [
+              'position',
+              'rotation',
+              {
+                selector: '.head',
+                component: 'material',
+                property: 'color'
+              }
+            ]
+           });
+
+        }
+   
+        const components = NAF.schemas.getComponentsOriginal(template);
+        return components;
+      };
+
+
+      var Speech = true;
+      var audio1 = new Audio('assets/wav/action.wav');
+      var audio2 = new Audio('assets/wav/swoosh.wav');
+      var not360video = false;
+
+      AFRAME.registerComponent('click-listener', {
+        init: function () {
+            this.el.addEventListener('click', function (evt) {
+            });
+        }
+      });
+      AFRAME.registerComponent('audiohandler', {
+        init:function() {
+            let playing = false;
+            let audio = document.querySelector("#playAudio");
+            this.el.addEventListener('click', () => {
+                if(!playing) {
+                    audio.play();
+                } else {
+                    audio.pause();
+                    audio.currentTime = 0;
+                }
+                playing = !playing;
+            });
+        }
+      })
+     AFRAME.registerComponent('navigate', {
+        schema: {url: {default: ''}},
+        init: function () {
+        var data = this.data;
+            this.el.addEventListener('click', function () {
+                window.location = data.url;
+            });
+        }
+     });
+      function speakInfo(narration) {
+        var audio_msg = new SpeechSynthesisUtterance(narration);
+        if (Speech === true) {
+            window.speechSynthesis.speak(audio_msg);
+        }
+      }
+      function changeOrb(orb_num) {
+        document.getElementById('orbSky').setAttribute('material', 'src: #orb' + orb_num.toString());
+        removeScene();
+      }
+      function removeScene() {
+        document.getElementById('MeetingBuildings').setAttribute('visible', false);
+        document.getElementById('MeetingBuildings2').setAttribute('visible', false);
+        document.getElementById('MeetingBuildings3').setAttribute('visible', false);
+
+        document.getElementById('The_Island').setAttribute('visible', false);
+        document.getElementById('ourOcean').setAttribute('visible', false);
+        document.getElementById('artworkPosition1').setAttribute('visible', false);
+
+        document.getElementById('artworkPosition3').setAttribute('visible', false);
+
+        document.getElementById('artworkPosition11').setAttribute('visible', false);
+        document.getElementById('artworkPosition12').setAttribute('visible', false);
+        document.getElementById('artworkPosition13').setAttribute('visible', false);
+
+        document.getElementById('ShootRaygun').setAttribute('visible', false);
+        document.getElementById('Pedistal').setAttribute('visible', false);
+
+        document.getElementById('Palm_Tree1').setAttribute('visible', false);
+        document.getElementById('Palm_Tree2').setAttribute('visible', false);
+        document.getElementById('Palm_Tree3').setAttribute('visible', false);
+        document.getElementById('Palm_Tree4').setAttribute('visible', false);
+        document.getElementById('Palm_Tree6').setAttribute('visible', false);
+        document.getElementById('Palm_Tree7').setAttribute('visible', false);
+        document.getElementById('bridge-3').setAttribute('visible', false);
+        document.getElementById('bridge-7').setAttribute('visible', false);
+        document.getElementById('Foundation').setAttribute('visible', false);
+
+        document.getElementById('cylinder1').setAttribute('visible', false);
+        document.getElementById('sphere1').setAttribute('visible', false);
+        document.getElementById('cylinder2').setAttribute('visible', false);
+        document.getElementById('sphere2').setAttribute('visible', false);
+        document.getElementById('modelSculpture').setAttribute('visible', false);
+        document.getElementById('cylinderSculpture').setAttribute('visible', false);
+
+        document.getElementById('water-bridge').setAttribute('visible', false);
+        document.getElementById('Treasure').setAttribute('visible', false);
+        document.getElementById('fillWithGold').setAttribute('visible', false);
+
+        document.getElementById('MovementControls').setAttribute('visible', false);
+        document.getElementById('MovementControls2').setAttribute('visible', false);
+        document.getElementById('ReturnIsland').setAttribute('visible', true);
+
+        document.getElementById('hex-between1').setAttribute('visible', false);
+        document.getElementById('hex-between2').setAttribute('visible', false);
+        document.getElementById('hex-ramp').setAttribute('visible', false);
+        document.getElementById('Sofawith3seats').setAttribute('visible', false);
+
+        document.getElementById('MeetingTable').setAttribute('visible', false);
+        document.getElementById('Islands_small_map').setAttribute('visible', false);
+        document.getElementById('TableCylinder').setAttribute('visible', false);
+        document.getElementById('Office_Swivel_Chair1').setAttribute('visible', false);
+        document.getElementById('Office_Swivel_Chair2').setAttribute('visible', false);
+        document.getElementById('Office_Swivel_Chair3').setAttribute('visible', false);
+        document.getElementById('Office_Swivel_Chair4').setAttribute('visible', false);
+
+        document.getElementById('Flying Saucer').setAttribute('visible', false);
+        document.getElementById('Alien2').setAttribute('visible', false);
+        document.getElementById('LargeRocket').setAttribute('visible', false);
+        document.getElementById('scifiCafeSign').setAttribute('visible', false);
+
+
+        document.getElementById('cylinder3').setAttribute('visible', false);
+        document.getElementById('cylinder4').setAttribute('visible', false);
+        document.getElementById('cylinder5').setAttribute('visible', false);
+        document.getElementById('cylinder6').setAttribute('visible', false);
+        document.getElementById('fountian_ball').setAttribute('visible', false);
+        document.getElementById('torus').setAttribute('visible', false);
+        document.getElementById('water').setAttribute('visible', false);
+        document.getElementById('scifiCafeSign').setAttribute('visible', false);
+
+      }
+      function restoreScene() {
+        document.getElementById('orbSky').setAttribute('material', 'src: #orb1');
+        document.getElementById('MeetingBuildings').setAttribute('visible', true);
+        document.getElementById('MeetingBuildings2').setAttribute('visible', true);
+        document.getElementById('MeetingBuildings3').setAttribute('visible', true);
+
+        document.getElementById('The_Island').setAttribute('visible', true);
+        document.getElementById('ourOcean').setAttribute('visible', true);
+        document.getElementById('artworkPosition1').setAttribute('visible', true);
+
+        document.getElementById('artworkPosition3').setAttribute('visible', true);
+
+        document.getElementById('artworkPosition11').setAttribute('visible', true);
+        document.getElementById('artworkPosition12').setAttribute('visible', true);
+        document.getElementById('artworkPosition13').setAttribute('visible', true);
+
+        document.getElementById('ShootRaygun').setAttribute('visible', true);
+        document.getElementById('Pedistal').setAttribute('visible', true);
+
+
+        document.getElementById('Palm_Tree1').setAttribute('visible', true);
+        document.getElementById('Palm_Tree2').setAttribute('visible', true);
+        document.getElementById('Palm_Tree3').setAttribute('visible', true);
+        document.getElementById('Palm_Tree4').setAttribute('visible', true);
+        document.getElementById('Palm_Tree6').setAttribute('visible', true);
+        document.getElementById('Palm_Tree7').setAttribute('visible', true);
+        document.getElementById('bridge-3').setAttribute('visible', true);
+        document.getElementById('bridge-7').setAttribute('visible', true);
+        document.getElementById('Foundation').setAttribute('visible', true);
+
+
+        document.getElementById('cylinder1').setAttribute('visible', true);
+        document.getElementById('sphere1').setAttribute('visible', true);
+        document.getElementById('cylinder2').setAttribute('visible', true);
+        document.getElementById('sphere2').setAttribute('visible', true);
+        document.getElementById('modelSculpture').setAttribute('visible', true);
+        document.getElementById('cylinderSculpture').setAttribute('visible', true);
+
+        document.getElementById('water-bridge').setAttribute('visible', true);
+        document.getElementById('Treasure').setAttribute('visible', true);
+        document.getElementById('fillWithGold').setAttribute('visible', true);
+
+        document.getElementById('MovementControls').setAttribute('visible', true);
+        document.getElementById('MovementControls2').setAttribute('visible', true);
+        document.getElementById('ReturnIsland').setAttribute('visible', false);
+
+        document.getElementById('hex-between1').setAttribute('visible', true);
+        document.getElementById('hex-between2').setAttribute('visible', true);
+        document.getElementById('hex-ramp').setAttribute('visible', true);
+        document.getElementById('Sofawith3seats').setAttribute('visible', true);
+
+        document.getElementById('MeetingTable').setAttribute('visible', true);
+        document.getElementById('Islands_small_map').setAttribute('visible', true);
+        document.getElementById('TableCylinder').setAttribute('visible', true);
+        document.getElementById('Office_Swivel_Chair1').setAttribute('visible', true);
+        document.getElementById('Office_Swivel_Chair2').setAttribute('visible', true);
+        document.getElementById('Office_Swivel_Chair3').setAttribute('visible', true);
+        document.getElementById('Office_Swivel_Chair4').setAttribute('visible', true);
+
+        document.getElementById('Flying Saucer').setAttribute('visible', true);
+        document.getElementById('Alien2').setAttribute('visible', true);
+        document.getElementById('LargeRocket').setAttribute('visible', true);
+        document.getElementById('scifiCafeSign').setAttribute('visible', true);
+
+
+        document.getElementById('cylinder3').setAttribute('visible', true);
+        document.getElementById('cylinder4').setAttribute('visible', true);
+        document.getElementById('cylinder5').setAttribute('visible', true);
+        document.getElementById('cylinder6').setAttribute('visible', true);
+        document.getElementById('fountian_ball').setAttribute('visible', true);
+        document.getElementById('torus').setAttribute('visible', true);
+        document.getElementById('water').setAttribute('visible', true);
+        document.getElementById('scifiCafeSign').setAttribute('visible', true);
+
+      }
+      function sqrImg(imgNum) {
+        document.getElementById('orb_2Dimg' + imgNum).setAttribute('visible', true);
+        document.getElementById('OrbName_place' + imgNum).setAttribute('visible', true);
+      }
+      function dspImg(dimgNum) {
+        document.getElementById('orb_2Dimg' + dimgNum).setAttribute('visible', false);
+        document.getElementById('OrbName_place' + dimgNum).setAttribute('visible', false);
+      }
+      function playSwoosh() {
+        audio2.play();
+      }
+
+      function playBlip() {
+        audio1.play();
+      }
+      function playSound() {
+      }
+      function play360() {
+
+          document.getElementById('orbSky').setAttribute('visible', false);
+      }
+      function STOPplay360() {
+
+          document.getElementById('orbSky').setAttribute('visible', true);
+      }
+
+      function TeleportLocation(tele_num) {
+
+        var cameraPos = document.getElementById('player');
+
+        switch(tele_num) {
+          case 1:
+            cameraPos.setAttribute('position','-23.484 1.65 -35.524');
+          break;
+          case 2:
+            cameraPos.setAttribute('position','-173.23445 1.65 -65.96513');
+          break;
+          case 3:
+            //cameraPos.setAttribute('position','-49.95214 13.65071 57.70756');
+          break;
+          case 4:
+            cameraPos.setAttribute('position','-98.30411 1.65 37.07462');
+          break;
+          default:
+
+        }
+      }
+
+
+  AFRAME.registerPrimitive('a-ocean', {
+    defaultComponents: {
+      ocean: {},
+      rotation: {x: -90, y: 0, z: 0}
+    },
+    mappings: {
+      width: 'ocean.width',
+      depth: 'ocean.depth',
+      density: 'ocean.density',
+      amplitude: 'ocean.amplitude',
+      amplitudeVariance: 'ocean.amplitudeVariance',
+      speed: 'ocean.speed',
+      speedVariance: 'ocean.speedVariance',
+      color: 'ocean.color',
+      opacity: 'ocean.opacity'
+    }
+  });
+
+  AFRAME.registerComponent('ocean', {
+    schema: {
+      // Dimensions of the ocean area.
+      width: {default: 10, min: 0},
+      depth: {default: 10, min: 0},
+
+      // Density of waves.
+      density: {default: 10},
+
+      // Wave amplitude and variance.
+      amplitude: {default: 0.1},
+      amplitudeVariance: {default: 0.3},
+
+      // Wave speed and variance.
+      speed: {default: 1},
+      speedVariance: {default: 2},
+
+      // Material.
+      color: {default: '#7AD2F7', type: 'color'},
+      opacity: {default: 0.8}
+    },
+
+
+    play: function () {
+      const el = this.el,
+          data = this.data;
+      let material = el.components.material;
+
+      const geometry = new THREE.PlaneBufferGeometry(data.width, data.depth, data.density, data.density);
+      THREE.BufferGeometryUtils.mergeVertices( geometry)
+      this.waves = [];
+      for (let v, i = 2, l = geometry.attributes.position.array.length; i < l; i += 3) {
+        v = geometry.attributes.position.array[i]
+          this.waves.push({
+          z: v,
+          ang: Math.random() * Math.PI * 2,
+          amp: data.amplitude + Math.random() * data.amplitudeVariance,
+          speed: (data.speed + Math.random() * data.speedVariance) / 1000 // radians / frame
+        });
+      }
+
+      if (!material) {
+        material = {};
+        material.material = new THREE.MeshPhongMaterial({
+          color: data.color,
+          transparent: data.opacity < 1,
+          opacity: data.opacity,
+          shading: THREE.FlatShading,
+        });
+      }
+
+      this.mesh = new THREE.Mesh(geometry, material.material);
+      el.setObject3D('mesh', this.mesh);
+    },
+
+    remove: function () {
+      this.el.removeObject3D('mesh');
+    },
+
+    tick: function (t, dt) {
+      if (!dt) return;
+
+      for (let v, vprops, i = 0,j = 2; i < this.waves.length; i ++, j += 3){
+        vprops = this.waves[i];
+        v = vprops.z + Math.sin(vprops.ang) * vprops.amp;
+        this.mesh.geometry.attributes.position.array[j]=v
+        vprops.ang += vprops.speed * dt;
+      }
+
+      this.mesh.geometry.attributes.position.needsUpdate = true;
+    }
+  });
+
+
+  /* global AFRAME, THREE */
+
+/* Constrain an object to a navmesh, for example place this element after wasd-controls like so:
+`wasd-controls navmesh-physics="#navmesh-el"`
+*/
+AFRAME.registerComponent('simple-navmesh-constraint', {
+  schema: {
+    enabled: {
+      default: true
+    },
+    navmesh: {
+      default: ''
+    },
+    fall: {
+      default: 0.5
+    },
+    height: {
+      default: 1.6
+    },
+    exclude: {
+      default: ''
+    },
+    xzOrigin: {
+      default: ''
+    }
+  },
+  
+  update: function () {
+    this.lastPosition = null;
+    this.excludes = this.data.exclude ? Array.from(document.querySelectorAll(this.data.exclude)):[];
+    const els = Array.from(document.querySelectorAll(this.data.navmesh));
+    if (els === null) {
+      console.warn('navmesh-physics: Did not match any elements');
+      this.objects = [];
+    } else {
+      this.objects = els.map(el => el.object3D).concat(this.excludes.map(el => el.object3D));
+    }
+    this.xzOrigin = this.data.xzOrigin ? this.el.querySelector(this.data.xzOrigin) : this.el;
+  },
+
+  tick: (function () {
+    const nextPosition = new THREE.Vector3();
+    const tempVec = new THREE.Vector3();
+    const scanPattern = [
+      [0,1], // Default the next location
+      [0,0.5], // Check that the path to that location was fine
+      [30,0.4], // A little to the side shorter range
+      [-30,0.4], // A little to the side shorter range
+      [60,0.2], // Moderately to the side short range
+      [-60,0.2], // Moderately to the side short range
+      [80,0.06], // Perpendicular very short range
+      [-80,0.06], // Perpendicular very short range
+    ];
+    const down = new THREE.Vector3(0,-1,0);
+    const raycaster = new THREE.Raycaster();
+    const gravity = -1;
+    const maxYVelocity = 0.5;
+    const results = [];
+    let yVel = 0;
+    let firstTry = true;
+    
+    return function tick(time, delta) {
+      if (this.data.enabled === false) return;
+      if (this.lastPosition === null) {
+        firstTry = true;
+        this.lastPosition = new THREE.Vector3();
+        this.xzOrigin.object3D.getWorldPosition(this.lastPosition);
+        if (this.data.xzOrigin) this.lastPosition.y -= this.xzOrigin.object3D.position.y;
+      }
+      
+      const el = this.el;
+      if (this.objects.length === 0) return;
+
+      this.xzOrigin.object3D.getWorldPosition(nextPosition);
+      if (this.data.xzOrigin) nextPosition.y -= this.xzOrigin.object3D.position.y;
+      if (nextPosition.distanceTo(this.lastPosition) <= 0.01) return;
+      
+      let didHit = false;
+      // So that it does not get stuck it takes as few samples around the user and finds the most appropriate
+      scanPatternLoop:
+      for (const [angle, distance] of scanPattern) {
+        tempVec.subVectors(nextPosition, this.lastPosition);
+        tempVec.applyAxisAngle(down, angle*Math.PI/180);
+        tempVec.multiplyScalar(distance);
+        tempVec.add(this.lastPosition);
+        tempVec.y += maxYVelocity;
+        tempVec.y -= this.data.height;
+        raycaster.set(tempVec, down);
+        raycaster.far = this.data.fall > 0 ? this.data.fall + maxYVelocity : Infinity;
+        raycaster.intersectObjects(this.objects, true, results);
+        
+        if (results.length) {
+          // If it hit something we want to avoid then ignore it and stop looking
+          for (const result of results) {
+            if(this.excludes.includes(result.object.el)) {
+              results.splice(0);
+              continue scanPatternLoop;
+            }
+          }
+          const hitPos = results[0].point;
+          results.splice(0);
+          hitPos.y += this.data.height;
+          if (nextPosition.y - (hitPos.y - yVel*2) > 0.01) {
+            yVel += Math.max(gravity * delta * 0.001, -maxYVelocity);
+            hitPos.y = nextPosition.y + yVel;
+          } else {
+            yVel = 0;
+          }
+          tempVec.copy(hitPos);
+          this.xzOrigin.object3D.parent.worldToLocal(tempVec);
+          tempVec.sub(this.xzOrigin.object3D.position);
+          if (this.data.xzOrigin) tempVec.y += this.xzOrigin.object3D.position.y;
+          this.el.object3D.position.add(tempVec);
+          
+          this.lastPosition.copy(hitPos);
+          didHit = true;
+          break;
+        }
+        
+      }
+      
+      if (didHit) {
+        firstTry = false;
+      }
+      
+      if (!firstTry && !didHit) {
+        this.el.object3D.position.copy(this.lastPosition);
+        this.el.object3D.parent.worldToLocal(this.el.object3D.position);
+      }
+    }
+  }())
+});
+
+    </script>
+    <!-- Video Player Styling -->
+    <style type="text/css">
+      #video-permission {
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background: white;
+          z-index: 10000;
+          display: none;
+      }
+      #video-permission-button {
+        position: fixed;
+        top: calc(50% - 1em);
+        left: calc(50% - 60px);
+        width: 120px;
+        height: 2em;
+      }
+    </style>
+
+  </head>
+
+  <body>
+    <div id="video-permission">
+    <button id="video-permission-button">Allow VR Video</button>
+    </div>
+        <button id="playButton" type="button">Play Sound</button>
+    <audio id="playAudio" volume="0.3" autoplay loop>
+        <source src="assets/mp3/oceanSound.mp3" type="audio/mpeg">
+    </audio>
+    <a-scene networked-scene="
+      room: TreasureIsland;
+      debug: true;
+      adapter: easyrtc;
+      audio: true;
+      video: false;"
+      physx="autoLoad: true; delay: 1000; wasmUrl: https://stemkoski.github.io/A-Frame-Examples/js/physx.release.wasm; useDefaultScene: false;"
+      info-message="htmlSrc: #messageText"
+      shadow="type: pcfsoft" renderer="antialias: true; highRefreshRate: true" vr-mode-ui="arEnabled: false"
+      raycaster="objects: .raycastable, .clickable, .fountian_ball, .cylinder4, a-link, a-sphere"
+      webxr="overlayElement:#dom-overlay;"
+      background="color:skyblue;"
+    >
+
+      <a-assets timeout="50000">
+        <a-asset-item id="navmesh-glb" src="assets/gltf/TreasureIslandNavmeshFinal2.gltf"></a-asset-item>
+        <a-asset-item crossorigin="anonymous" id="Island" src="assets/gltf/IslandSmooth.glb"></a-asset-item>
+        <img crossorigin="anonymous" src="assets/img/floor1.jpg" id="floor" >
+        <img crossorigin="anonymous" id="orb1" src="assets/img/skyland2.jpg">
+
+         <!-- Hex Rooms -->
+         <a-asset-item id="MeetingComplex" src="assets/gltf/HexRoomMosaicA.glb" nav-agent="speed: 1.5; active: true"></a-asset-item>
+
+        <a-asset-item crossorigin="anonymous" id="Palm" src="assets/gltf/PalmMinimal.glb"></a-asset-item>
+        <a-asset-item id="messageText" src="ControlsMessage.html" response-type="text"></a-asset-item>
+
+        <img crossorigin="anonymous" id="artwork1" src="artwork/DSC_0137med6.jpg">
+
+        <img crossorigin="anonymous" id="artwork3" src="artwork/DSC01280rmed6.jpg">
+       
+        <img crossorigin="anonymous" id="artwork11" src="artwork/DSC00921med6.jpg">
+        <img crossorigin="anonymous" id="artwork12" src="artwork/DSC01255r.jpg">
+        <img crossorigin="anonymous" id="artwork13" src="artwork/DSC01428med6.jpg">
+
+        <a-asset-item id="Sofa3seat" src="assets/gltf/GreySofa.glb"></a-asset-item>
+        <a-asset-item id="SwivelChair" src="assets/gltf/chair.glb"></a-asset-item>
+        <a-asset-item id="Table1" src="assets/gltf/tableFixed14.glb"></a-asset-item>
+
+        <img crossorigin="anonymous" id="movementInstructions" src="assets/img/movementControl.jpg">                
+
+        <img crossorigin="anonymous" id="orb5" src="assets/360/image/theBeach.jpg">
+        <img crossorigin="anonymous" id="orb7" src="assets/360/image/SAM_101_0152.jpg">
+        <img crossorigin="anonymous" id="orb8" src="assets/360/image/SAM_101_0128.jpg">
+        <img crossorigin="anonymous" id="orbthumb5" src="assets/360/image/thumb/theBeach_thumb.jpg">
+        <img crossorigin="anonymous" id="orbthumb7" src="assets/360/image/thumb/SAM_101_0152_thumb.jpg">
+        <img crossorigin="anonymous" id="orbthumb8" src="assets/360/image/thumb/SAM_101_0128_thumb.jpg">
+        <img crossorigin="anonymous" id="imgthumb5" src="assets/360/image/imgthumb/theBeach.jpg">
+        <img crossorigin="anonymous" id="imgthumb7" src="assets/360/image/imgthumb/SAM_101_0152_imgthumb.jpg">
+        <img crossorigin="anonymous" id="imgthumb8" src="assets/360/image/imgthumb/SAM_101_0128_imgthumb.jpg">
+        <img crossorigin="anonymous" id="ReturnBack" src="assets/img/ReturnBack.png">
+
+        <a-asset-item id="ShapeSculpture" src="assets/gltf/ShapesScuplture3.glb"></a-asset-item>
+        <a-asset-item id="Raygun" src="assets/gltf/raygun.glb"></a-asset-item>
+        <a-asset-item id="Chest" src="assets/gltf/testChest2.glb"></a-asset-item>
+        <img crossorigin="anonymous" src="assets/img/coins.jpg" id="coins">
+
+        <img crossorigin="anonymous" src="assets/img/play2.png" id="play" >
+        <img crossorigin="anonymous" src="assets/img/pause.png" id="pause" >
+        <img crossorigin="anonymous" src="assets/img/volume-normal.png" id="volume-normal" >
+        <img crossorigin="anonymous" src="assets/img/volume-mute.png" id="volume-mute" >
+        <img crossorigin="anonymous" src="assets/img/seek-back.png" id="seek-back" >
+
+        <video crossorigin="anonymous" id="video-src" src="assets/video/makerFinal2.mp4"></video>
+
+        <a-asset-item id="Rocket" src="assets/gltf/rocket4.glb"></a-asset-item>
+        <a-asset-item id="Grey" src="assets/gltf/alienLite.glb"></a-asset-item>
+        <a-asset-item id="Saucer" src="assets/gltf/fsaucer.glb"></a-asset-item>
+
+        <img crossorigin="anonymous" id="Grand_opening" src="assets/img/Busy_SF_CAFE_Grand_opening_night.jpg">
+
+        <a-mixin id="marble" geometry="primitive: sphere" scale=".30 .30 .30" animation__rotation="startEvents: mouseenter; pauseEvents: mouseleave; resumeEvents: mouseenter; property: rotation; to: 0 360 0; loop: true; dur: 10000" animation__mouseenter="startEvents: mouseenter; pauseEvents: mouseleave; resumeEvents: mouseenter; property: components.material.material.color; type: color; to: white;  dur: 500; " animation__mouseleave="property: components.material.material.color; type: color; to: gray; startEvents: mouseleave; dur: 500;" shadow ></a-mixin>
+        <a-mixin id="spin" animation="property: rotation; to: 0 360 0; loop: true; dur: 100000; easing: linear"></a-mixin>
+        <a-mixin id="blink" blink-controls="button:trigger; rotateOnTeleport:false; cameraRig: #rig; teleportOrigin: #player; collisionEntities:.navmesh;"></a-mixin>
+
+        <!-- Templates -->
+        <a-asset-item id="RobotHead" src="assets/gltf/avatarHead.glb"></a-asset-item>
+        <a-asset-item id="LHand" src="assets/gltf/leftHandLow.glb"></a-asset-item>
+        <a-asset-item id="RHand" src="assets/gltf/rightHandLow.glb"></a-asset-item>
+        <!-- Avatar -->
+        <template id="rig-template">
+          <a-entity networked-audio-source><!-- <a-box color="#FFF" position="0 1.4 0" material="" networked-video-source="" geometry="" scale="0.325 0.325 0.325"></a-box>  --></a-entity>
+        </template>
+
+        <template id="head-template">
+          <a-entity class="cam" gltf-model="#RobotHead" scale="1 1 1"></a-entity>
+        </template>
+
+        <template id="left-hand-template">
+            <a-entity class="leftController" gltf-model="#LHand" ></a-entity>
+        </template>
+
+        <template id="right-hand-template">
+            <a-entity class="rightController" gltf-model="#RHand" ></a-entity>
+        </template>
+
+        <!-- /Templates -->
+
+  
+      </a-assets>
+
+      <a-entity id="mouseCursor" cursor="rayOrigin: mouse"></a-entity>
+      <a-gltf-model class="navmesh" src="#navmesh-glb" visible="false" nav-mesh></a-gltf-model>
+
+      <a-entity id="rig" spawn-in-circle="radius:3" networked="template:#rig-template;" simple-navmesh-constraint="navmesh:.navmesh;fall:0.5;height:0;exclude:.navmesh-hole;" movement-controls="speed:0.15;camera:#player;">
+        <!-- camera -->
+        <a-entity id="player" camera="near:0.01;" look-controls position="0 1.65 0" networked="template:#head-template" visible="false">
+
+        </a-entity>
+
+          <a-entity id="leftHand" hand-controls="hand: left;" networked="template:#left-hand-template; handModelStyle: lowPoly; color: #15ACCF" mixin="blink">
+          </a-entity>
+
+          <a-entity id="rightHand" hand-controls="hand: right;" networked="template:#right-hand-template; handModelStyle: lowPoly; color: #15ACCF" laser-controls raycaster=";showLine:true; lineColor:#7cfc00; far: 10; interval: 0; objects: [html], .raycastable, .clickable, .fountian_ball, .cylinder4, a-link;">
+          </a-entity>
+
+      </a-entity>
+
+      <a-entity id="The_Island" gltf-model="#Island" position="-208.88164 -9.83526 -154.40424" scale="140 140 140" visible="" shadow="cast: false; receive: true"></a-entity>
+      <a-entity id="ambientlight" light="type: ambient; intensity: .95"></a-entity>
+      <a-box id="Foundation" position="-3.32823 -0.09738 -7.89352" rotation="-90.00021045914971 90 0" scale="13.29474 10.89561 0.32555" width="4" height="4" color="#FFFFFF" shadow="receive: true" material="src: #floor; color: white; transparent: true; repeat: 50 50" geometry=""></a-box>
+      <a-ocean id="ourOcean" position="-47.35699 -2.58219 40.11002" scale="6 6 6" width="50" depth="50" opacity=".55" ocean="color: #06C6CB; density: 45; amplitude: -0.2; speed: 0.95; speedVariance: 0.2"></a-ocean>
+      <a-sky id="orbSky" material="src: #orb1" rotation="0 0 0" ></a-sky>
+      <!-- <a-sphere id="flare" radius="0.05" color="yellow" lensflare="createLight:false; relative: true; src: #flare-asset; lightColor:yellow; intensity: 5; lightDecay: 500" position="-303.76151 57.79742 4.88911"></a-sphere>  -->
+      <a-entity id="MeetingBuildings" gltf-model="#MeetingComplex" position="7.887 0.07 -9.352" rotation="0 90 0" scale="0.02 0.02 0.02" shadow=""></a-entity>
+      <a-entity id="MeetingBuildings2" gltf-model="#MeetingComplex" position="-5.053 0.07 7.499" rotation="0 0 0" scale="0.02 0.02 0.02" shadow=""></a-entity>
+      <a-entity id="MeetingBuildings3" gltf-model="#MeetingComplex" position="-5.266 0.07 -24.750" rotation="0 -180 0" scale="0.02 0.02 0.02" shadow=""></a-entity>
+ 
+      <!-- Bridges allowing us to move around the island and on multiple levels.  -->
+      <a-box id="water-bridge" position="-44.05655 -4.30731 -22.47425" rotation="-72.20929796254252 179.95229246350846 89.64325775278321" scale="6.0626 0.868 0.143" width="4" height="4" color="#FFFFFF" shadow="" material="" geometry="" opacity=".35"></a-box>
+      <a-box id="bridge-3" position="-27.712 10.274 32.261" rotation="-82.773 123.200 -73.966" scale="13.387 1 0.143" width="4" height="4" color="#FFFFFF" opacity=".35" material="" geometry=""></a-box>
+      <a-box id="bridge-7" position="-36.59874 -0.42997 -9.33153" rotation="-89.12816869496059 -90.00021045914971 90.00021045914971" scale="7.25388 0.868 0.143" width="4" height="4" color="#FFFFFF" shadow="" material="" geometry="" opacity=".35"></a-box>
+
+      <a-entity id="Palm_Tree1" gltf-model="#Palm" position="-122.21544 1.35503 -25.99071" rotation="0 0 0" scale=".002 .004 .002" shadow></a-entity>
+      <a-entity id="Palm_Tree2" gltf-model="#Palm" position="26.89416 -0.91787 0.262" rotation="0 78.26 0" scale=".002 .004 .002" shadow></a-entity>
+      <a-entity id="Palm_Tree3" gltf-model="#Palm" position="-53.19211 -1.21051 -11.23701" rotation="0 78.26 0" scale="0.002 0.003 0.002" shadow=""></a-entity>
+      <a-entity id="Palm_Tree4" gltf-model="#Palm" position="-50.356 -0.13506 -64.372" rotation="-6.868045090233179 61.74422383447803 5.194435370656045" scale="0.002 0.003 0.002" shadow=""></a-entity>
+      <a-entity id="Palm_Tree6" gltf-model="#Palm" position="-16.813 0.23619 -2.103" rotation="0 78.26 0" scale="0.002 0.003 0.002" shadow></a-entity>
+      <a-entity id="Palm_Tree7" gltf-model="#Palm" position="-17.030 0.18785 -16.375" rotation="-0.7522935850067709 58.93100106038569 7.000971298703528" scale="0.002 0.003 0.002" shadow></a-entity>
+
+      <a-cylinder id="cylinder1" position="-16.813 0.08504 -2.103" scale="1.372 0.113 1.372" radius="0.5" height="1.5" color="#E3E3E3" shadow="" material="" geometry=""></a-cylinder>
+      <a-sphere id="sphere1" position="-16.813 -0.0407 -2.103" scale="0.457 0.307 0.457" radius="1.25" color="#51A727" shadow="" material="" geometry=""></a-sphere>
+      <a-cylinder id="cylinder2" position="-17.030 0.08504 -16.375" scale="1.372 0.113 1.372" radius="0.5" height="1.5" color="#E3E3E3" shadow="" material="" geometry=""></a-cylinder>
+      <a-sphere id="sphere2" position="-17.030 -0.0407 -16.375" scale="0.457 0.307 0.457" radius="1.25" color="#51A727" shadow="" material="" geometry=""></a-sphere>
+
+      <!-- Create a basic water fountain out of geometric shapes -->
+      <a-cylinder id="cylinder3" position="-13.491 0.085 -9.204" scale="1.372 0.113 1.372" radius="0.5" height="1.5" color="#E3E3E3" shadow="" material="" geometry="" shadow="receive: true; cast: true"></a-cylinder>
+      <a-cylinder id="cylinder4" position="-13.491 0.089 -9.204" scale="4.331 -0.011 4.331" radius="0.5" height="1.5" color="#E3E3E3" shadow="" material="" geometry="" shadow="receive: true; cast: true"></a-cylinder>
+      <a-cylinder id="cylinder5" position="-13.491 0.065 -9.204" scale="4.086 0.113 4.086" radius="0.5" height="1.5" color="#18C7D2" shadow="" material="" geometry="" opacity=".35" shadow="receive: true; cast: true"></a-cylinder>
+      <a-cylinder id="cylinder6" position="-13.491 0.790 -9.204" scale="0.629 0.950 0.629" radius="0.5" height="1.5" color="#E3E3E3" shadow="" material="" geometry="" shadow="receive: true; cast: true"></a-cylinder>
+      <a-sphere id="fountian_ball" class="clickable" position="-13.491 1.64705 -9.204" scale="0.363 0.363 0.363" radius="0.5" height="1.5" color="#E3E3E3" shadow="" material="" geometry="" shadow="receive: true; cast: true" audiohandler></a-sphere>
+      <a-torus id="torus" position="-13.491 0.088 -9.204" rotation="-90 90 -90" color="#E3E3E3" radius="5" radius-tubular="0.1" material="" geometry="radius: 2" shadow="receive: true; cast: true"></a-torus>
+
+      <a-entity id="water" position="-13.491 1.671 -9.204" particle-system="color:#000, #FFF;duration:NaN;velocitySpread:2 3 2;velocityValue:0 9 0;accelerationSpread:1 0 1;particleCount:45;maxAge:1.5;texture: https://funbit64.com:3025/assets/img/dot2.png" visible="true"></a-entity>
+
+      <!-- Our Treasure Chest in glTF format Link to license: https://creativecommons.org/licenses/by/4.0/  Location: https://sketchfab.com/3d-models/old-chest-efc357374ecf4d17a36e85f1237e624c -->
+      <a-entity id="Treasure" class="clickable" gltf-model="#Chest" position="-47.987 -9.099 -38.421" rotation="0 -48.819441891916924 0" scale="0.01 0.01 0.01" visible="true" onclick="location.href='https://funbit64.com/drupal/index.php/node/11';"></a-entity>
+
+      <a-plane id="fillWithGold" class="clickable" position="-48.008 -8.665 -38.421" rotation="-89.67878113608133 66.30955154608043 -113.66164852466733" width="4" height="4" color="#EBE3B6" material="src: #coins" visible="true" scale="0.261 0.117 0.407" onclick="location.href='https://funbit64.com/drupal/index.php/node/11';"></a-plane>
+
+      <a-plane id="MovementControls" position="-1.631 1.949 1.351" scale="2 1 2" rotation="0 149.525 0" material="src: #movementInstructions; color: white; transparent: true; side: double" geometry="" ></a-plane>
+      <a-plane id="MovementControls2" position="2.881 1.949 -3.926" scale="2 1 2" rotation="0 -60.412 0" material="src: #movementInstructions; color: white; transparent: true; side: double" geometry="" ></a-plane>
+
+      <a-plane id="artworkPosition1" class="clickable" position="2.514 1.9 -5.999" scale="1.33 1 1" rotation="0 -63.463 0" material="src: #artwork1; color: white; transparent: true; side: double" geometry="" onclick="location.href='https://funbit64.com/vrartscape/bootstrap.html';"></a-plane>
+     
+      <a-plane id="artworkPosition3" class="clickable" position="13.324 1.949 -12.624" scale="3.120 2.025 1" rotation="0 -60 0" material="src: #artwork3; color: white; transparent: true; side: double" geometry="" onclick="location.href='https://funbit64.com/vrartscape/bootstrap.html';"></a-plane>
+
+      <a-plane id="artworkPosition11" class="clickable" position="7.726 1.9 -15.676" scale="1.33 1 1" rotation="0 0 0" material="src: #artwork11; color: white; transparent: true; side: double" geometry="" onclick="location.href='https://funbit64.com/vrartscape/bootstrap.html';"></a-plane>
+      <a-plane id="artworkPosition12" class="clickable" position="13.725 1.9 -6.801" scale="1.33 1 1" rotation="0 -120 0" material="src: #artwork12; color: white; transparent: true; side: double" geometry="" onclick="location.href='https://funbit64.com/vrartscape/bootstrap.html';"></a-plane>
+      <a-plane id="artworkPosition13" class="clickable" position="2.882 1.9 -13.393" scale="1.33 1 1" rotation="0 60.056 0" material="src: #artwork13; color: white; transparent: true; side: double" geometry="" onclick="location.href='https://funbit64.com/vrartscape/bootstrap.html';"></a-plane>
+
+      <a-entity id="PedistalSpot2" position="11.703 1.716 -9.532" rotation="-32.965 -82.998 94.747" light="angle: 55; decay: 0.65; distance: 0.6; type: spot; intensity: 5; color: #d57cbd"></a-entity>
+
+      <a-entity id="ShootRaygun" class="clickable" gltf-model="#Raygun" position="6.552 0.924 -4.710" rotation="77.827 41.635 0" scale="0.2 0.195 0.195" shadow visible="" onclick="location.href='https://michael-mcanally.medium.com/my-personal-journey-with-a-frame-757222546cdb';"></a-entity>
+      <a-box id="Pedistal" position="6.749 0.55738 -4.451" rotation="0 45 0" color="#FFFFFF" visible="" shadow="" material="" geometry=""></a-box>
+      <a-entity id="GunPedistalSpot" position="6.749 1.398 -4.451" rotation="-90.680 -0.538 4.844" light="angle: 55; decay: 0.5; distance: 1; type: spot"></a-entity>
+
+      <a-entity id="modelSculpture" class="clickable" position="7.909 1.983 -9.350" rotation="0 0 0" scale="0.0002 0.0002 0.0002" gltf-model="#ShapeSculpture" mixin="spin" shadow="recieve: false; cast: true" onclick="location.href='https://funbit64.com/vrartscape/bootstrap.html';"></a-entity>
+      <a-cylinder id="cylinderSculpture" position="7.909 0.698 -9.350" radius="0.5" height="1.5" scale=".7 0.660 .7" color="#FFFFFF" shadow></a-cylinder>
+      <a-entity id="SculptureSpot" position="7.909 3 -9.350" rotation="-88.61766329949904 -119.47201352508898 123.77091586195557" light="angle: 75; decay: 0.7; distance: 1.5; type: spot; intensity: 0.7"></a-entity>
+
+      <a-sphere id="orb_place5" class="clickable" mixin="marble" position="-5.162 0.83949 9.520" rotation="0 45 0" material="src: #orbthumb5" onclick="playSwoosh();changeOrb(5);STOPplay360();"  onmouseenter="sqrImg(5);" onmouseleave="dspImg(5);"></a-sphere>
+      <a-sphere id="orb_place7" class="clickable" mixin="marble" position="-7.144 0.83949 7.539" rotation="0 45 0" material="src: #orbthumb7" onclick="playSwoosh();changeOrb(7);STOPplay360();"  onmouseenter="sqrImg(7);" onmouseleave="dspImg(7);"></a-sphere>
+      <a-sphere id="orb_place8" class="clickable" mixin="marble" position="-3.205 0.83949 7.601" rotation="0 45 0" material="src: #orbthumb8" onclick="playSwoosh();changeOrb(8);STOPplay360();"  onmouseenter="sqrImg(8);" onmouseleave="dspImg(8);"></a-sphere>
+      <a-entity id="OrbName_place5" material="color: #F9CF45" class="clickable" position="-4.723 4.241 12.141" rotation="0 180 0" text-geometry="value: The Beach; size: 0.12; font: #optimerBoldFont" onclick="playBlip();speakInfo('The Beach');" visible="false"></a-entity>
+      <a-entity id="OrbName_place7" material="color: #F9CF45" class="clickable" position="-4.723 4.241 12.141" rotation="0 180 0" text-geometry="value: Pier and Bridge; size: 0.12; font: #optimerBoldFont" onclick="playBlip();speakInfo('Pier and Bridge');" visible="false"></a-entity>
+      <a-entity id="OrbName_place8" material="color: #F9CF45" class="clickable" position="-4.723 4.241 12.141" rotation="0 180 0" text-geometry="value: Downtown SF; size: 0.12; font: #optimerBoldFont" onclick="playBlip();speakInfo('San Francisco Market Street');" visible="false"></a-entity>
+      <a-plane id="orb_2Dimg5" position="-5.118 2.749 12.141" scale="3.368 2.641 0.1" rotation="0 180 0" material="src: #imgthumb5; side: double"  visible="false"></a-plane>
+      <a-plane id="orb_2Dimg7" position="-5.118 2.749 12.141" scale="3.368 2.641 0.1" rotation="0 180 0" material="src: #imgthumb7; side: double" visible="false"></a-plane>
+      <a-plane id="orb_2Dimg8" position="-5.118 2.749 12.141" scale="3.368 2.641 0.1" rotation="0 180 0" material="src: #imgthumb8; side: double" visible="false"></a-plane>
+      <a-box id="ReturnIsland" class="clickable" animation="property: rotation; to: 0 360 0; loop: true; dur: 10000; " position="-5.278 0.542 8.081" rotation="-27.12095723251752 -180 0" material="src: #ReturnBack" scale="0.3 0.3 0.3" onclick="restoreScene();" shadow visible="false"></a-box>
+
+      <a-entity id="shadowcamera" light="intensity: 0.25; castShadow: true; shadowCameraLeft: -100; shadowCameraBottom: -100; shadowCameraRight: 100; shadowCameraTop: 100; shadowCameraVisible: false; angle: 180; decay: 0.5; shadowCameraFar: 100; shadowMapHeight: 1024; shadowMapWidth: 1024" position="-30.43253 34.92862 0.12768"></a-entity>
+
+      <!-- position furniture  -->
+      <a-entity id="Office_Swivel_Chair1" gltf-model="#SwivelChair" position="-4.339 0.01362 -26.621" rotation="0 -98.36 0" scale=".14 .14 .14" shadow visible=""></a-entity>
+      <a-entity id="Office_Swivel_Chair2" gltf-model="#SwivelChair" position="-6.947 0.01362 -23.517" rotation="0 57.145 0" scale=".14 .14 .14" shadow="" visible=""></a-entity>
+      <a-entity id="Office_Swivel_Chair3" gltf-model="#SwivelChair" position="-7.163 0.01362 -25.697" rotation="0 -4.833 0" scale=".14 .14 .14" shadow="" visible=""></a-entity>
+      <a-entity id="Office_Swivel_Chair4" gltf-model="#SwivelChair" position="-3.606 0.01362 -23.713" rotation="0 153.680 0" scale=".14 .14 .14" shadow="" visible=""></a-entity>
+
+      <a-entity id="MeetingTable" gltf-model="#Table1" position="-5.362 0.251 -24.650" rotation="0 -180 0" scale="0.000075 0.000035 0.000075" shadow="" visible=""></a-entity>
+
+      <!-- Small Terrain Map   -->
+
+      <a-entity id="mapTeleport" position="12.011 0.197 -14.880">
+          <a-entity id="Islands_small_map" gltf-model="#Island" position="-17.990 0.91452 -10.828" rotation="0 0 0" scale="0.806 1.0 0.806" shadow visible=""></a-entity>
+
+          <a-cylinder id="TableCylinder" position="-17.27257 0.9503 -9.78536" scale="1.72 0.003 1.72" radius="0.5" height="1.5" color="#58F5EC" shadow="" material="" geometry="" opacity="0.7"></a-cylinder>
+
+      </a-entity>
+
+      <a-entity id="Sofawith3seats" gltf-model="#Sofa3seat" position="-1.592 -0.006 -20.507" rotation="0 -150 0" scale="0.0005 0.0005 0.0005" shadow=""></a-entity>
+      <a-entity id="SofaSpot" position="-2.043 1.24002 -21.04855" rotation="-60.895673339889285 -169.4150256532575 -177.87073679379813" light="angle: 85; decay: 0.7; distance: 1.5; type: spot; intensity: 0.7"></a-entity>
+
+      <a-entity id="Flying Saucer" gltf-model="#Saucer" position="-77.25848 -14.69214 -14.47173" rotation="34.226206849934854 16.358518008780134 2.398401330417626" scale="14 14 14" shadow visible=""></a-entity>
+      <a-entity id="Alien2" gltf-model="#Grey" position="-67.44708 1.28225 -8.74552" rotation="-68.62430103840896 -10.747542321063982 1.4593235041982067" scale="2 2 2" shadow visible=""></a-entity>
+      <a-entity id="LargeRocket" gltf-model="#Rocket" position="-155.8457 30.06252 -17.47398" rotation="0.9144406410287937 -0.18621128341751755 -81.49350607484239" scale="10 10 10" shadow visible=""></a-entity>
+
+      <!-- Ramps -->
+      <a-box id="hex-ramp" position="7.815 3.535 -24.762" rotation="-60 90 -90" scale="3.58635 0.868 0.143" width="4" height="4" color="#FFFFFF" shadow="" material="" geometry="" opacity=".35"></a-box>
+      <a-box id="hex-between1" position="2.267 7.067 0.143" rotation="-90.000 -120.000 0.000" scale="1.777 0.491 0.143" width="4" height="4" color="#FFFFFF" shadow="" material="" geometry="" opacity=".35"></a-box>
+      <a-box id="hex-between2" position="2.115 7.06669 -17.855" rotation="-89.222 -0.012 127.790" scale="1.452 0.482 0.143" width="4" height="4" color="#FFFFFF" shadow="" material="" geometry="" opacity=".35"></a-box>
+
+      <a-entity id="movieScreenControls" position="-6.756 0.835 -27.061" rotation="0 30 0" scale="1.5 1.5 1">
+
+
+      <!-- Controls for display of video screen, seems to work nicely, javascript below </scene> tag below -->
+     
+          <!-- MEDIAS HOLDER -->
+          <a-sound id="alert-sound" src="src: url(assets/wav/action.wav)" autoplay="false" position="0 0 0"></a-sound>
+          <a-video id="video-screen" src="#video-src" position="-0.02132 1.89195 -3.56798" rotation="0 0 0" scale="0.50761 0.49394 1" width="8" height="4" rotation="0 0 0" visible="true"></a-video>
+          <!-- END MEDIAS HOLDER -->
+
+          <!-- CONTROLS -->
+          <a-image class="clickable" id="control-back" width="0.4" height="0.4" src="#seek-back" position="-0.42425 0.565 -3.47602" rotation="0 1.2570694025170261 0" visible="false" scale="0.85 0.85 0.85"></a-image>
+          <a-image class="clickable" id="control-play" width="0.4" height="0.4" src="#play" position="-0.00457 0.565 -3.47602" rotation="0 1.2570694025170261 0"></a-image>
+          <a-image class="clickable" id="control-volume" width="0.4" height="0.4" src="#volume-mute" position="0.38786 0.565 -3.47602" rotation="0 1.2570694025170261 0" visible="false" scale="0.75 0.75 0.75"></a-image>
+          <!-- END CONTROLS -->
+
+          <!-- PROGRESSBAR -->
+          <a-entity id="progress-bar" geometry="primitive:plane;height:0.1;width:4" material="opacity:0;transparent:true;visible:false" position="-0.00457 0.835 -3.47602" rotation="0 1.2570694025170261 0" >
+            <a-plane id="progress-bar-track" width="4" height="0.1" color="gray" position="" opacity="0.2" material="" visible="false" geometry=""></a-plane>
+            <a-plane id="progress-bar-fill" width="2.496982785433659" height="0.1" color="#7198e5" position="-0.7515086072831705 0 0" geometry="" visible="false" material=""></a-plane>
+          </a-entity>
+          <!-- END PROGRESSBAR -->
+
+      </a-entity>
+
+      <a-plane id="scifiCafeSign" class="clickable" position="-1.039 2.812 -19.853" scale="1.92648 1.43749 1" rotation="0 -151.021 0" material="src: #Grand_opening; color: white; transparent: true; side: double" geometry="" onclick="location.href='https://michael-mcanally.medium.com/my-story-finally-creating-a-open-source-metaverse-virtual-world-social-vr-island-space-with-webxr-c18ecf17da18';"></a-plane>
+
+
+
+    </a-scene>
+
+    <div class="actions">
+      <button id="mic-btn" type="button" class="button">Mute Mic</button>
+    </div>
+
+    <script>
+
+      NAF.schemas.add({
+        template: '#left-hand-template',
+        components: [
+          'position',
+          'rotation',
+        ]
+      });
+      NAF.schemas.add({
+        template: '#right-hand-template',
+        components: [
+          'position',
+          'rotation',
+        ]
+      });
+
+      // Mic status
+      let micEnabled = true;
+      // Mic button element
+      const micBtnEle = document.getElementById('mic-btn');
+
+      // Called by Networked-Aframe when connected to server
+      function onConnect() {
+        console.log('onConnect', new Date());
+
+        // Handle mic button click (Mute and Unmute)
+        micBtnEle.addEventListener('click', function () {
+          NAF.connection.adapter.enableMicrophone(!micEnabled);
+          micEnabled = !micEnabled;
+          micBtnEle.textContent = micEnabled ? 'Mute Mic' : 'Unmute Mic';
+        });
+      }
+window.onload = function() {
+  var context = new AudioContext();
+}
+document.querySelector('button').addEventListener('click', function() {
+  context.resume().then(() => {
+    console.log('Playback resumed successfully');
+  });
+});
+
+
+
+      var AVideoPlayer = function() {
+      // Vals
+      this.duration         = 0;
+      this.current_progress = 0;
+      this.progressWidth    = 4;
+      this.paused           = true;
+      // Elems
+      this.elProgressBar   = null;
+      this.elProgressTrack = null;
+      this.elProgressFill  = null;
+      this.elAlertSound    = null;
+      this.elVideo         = null;
+      this.elVideoScreen   = null;
+      this.elControlBack   = null;
+      this.elControlPlay   = null;
+      this.elControlVolume = null;
+      this._initElements = function() {
+        this.elProgressBar   = document.getElementById('progress-bar');
+        this.elProgressTrack = document.getElementById('progress-bar-track');
+        this.elProgressFill  = document.getElementById('progress-bar-fill');
+        this.elAlertSound    = document.getElementById('alert-sound');
+        this.elVideo         = document.getElementById('video-src');
+        this.elVideoScreen   = document.getElementById('video-screen');
+        this.elControlBack   = document.getElementById('control-back');
+        this.elControlPlay   = document.getElementById('control-play');
+        this.elControlVolume = document.getElementById('control-volume');
+      }
+      /**
+      * PROGRESS
+      */
+      this.setProgress = function(progress) {
+        var new_progress = this.progressWidth*progress;
+        this._setProgressWidth(new_progress);
+        var progress_coord = this._getProgressCoord();
+        if (progress_coord != undefined) {
+         progress_coord.x = -(this.progressWidth-new_progress)/2;
+         this._setProgressCoord(progress_coord);
+        }
+      }
+      this._getProgressCoord = function() {
+        return AFRAME.utils.coordinates.parse(this.elProgressFill.getAttribute("position"))
+      }
+      this._getProgressWidth = function() {
+        return parseFloat(this.elProgressFill.getAttribute("width"));
+      }
+      this._setProgressCoord = function(coord) {
+        this.elProgressFill.setAttribute("position", coord);
+      }
+      this._setProgressWidth = function(width) {
+        this.elProgressFill.setAttribute("width", width);
+      }
+      /*
+      * UI SETTERS
+      */
+      this.isProgressBarVisible = function(isVisible) {
+        this.elProgressTrack.setAttribute("visible", isVisible);
+        this.elProgressFill.setAttribute("visible", isVisible);
+      }
+      this.isControlVisible = function(isVisible) {
+        this.elControlBack.setAttribute("visible", isVisible);
+        this.elControlVolume.setAttribute("visible", isVisible);
+        this.elVideoScreen.setAttribute("visible", isVisible);
+      }
+      /*
+      * EVENTS
+      */
+      this._addPlayerEvents = function() {
+        var that = this;
+        this.elVideo.pause();
+        this.elVideo.onplay = function() {
+          that.duration = this.duration;
+        }
+        this.elVideo.ontimeupdate = function() {
+          if (that.duration > 0) {
+            that.current_progress = this.currentTime/that.duration;
+          }
+          that.setProgress(that.current_progress);
+        }
+      }
+      this._addControlsEvent = function() {
+        var that = this;
+        this.elControlPlay.addEventListener('click', function () {
+          that._playAudioAlert();
+          if (that.elVideo.paused) {
+            this.setAttribute('src', '#pause');
+            that.elVideo.play();
+            that.paused = false;
+            that.isProgressBarVisible(true);
+            that.isControlVisible(true);
+          } else {
+            this.setAttribute('src', '#play');
+            that.elVideo.pause();
+            that.paused = true;
+            that.isProgressBarVisible(false);
+            that.isControlVisible(false);
+         }
+        });
+        this.elControlVolume.addEventListener('click', function () {
+          that._playAudioAlert();
+          if (that.elVideo.muted) {
+            that.elVideo.muted = false;
+            this.setAttribute('src', '#volume-normal');
+          } else {
+            that.elVideo.muted = true;
+            this.setAttribute('src', '#volume-mute');
+          }
+        });
+        this.elControlBack.addEventListener('click', function () {
+          that._playAudioAlert();
+          that.elVideo.currentTime = 0;
+        });
+      }
+      this._addProgressEvent = function() {
+        var that = this;
+        this.elProgressBar.addEventListener('click', function (e) {
+          if (e.detail == undefined || e.detail.intersection == undefined || that.duration === 0) {
+            return;
+          }
+          let seekedPosition = (e.detail.intersection.point.x+(that.progressWidth/2))/that.progressWidth;
+          try {
+            let seekedTime = seekedPosition*that.duration;
+            that.elVideo.currentTime = seekedTime;
+          } catch (e) {
+          }
+        });
+      }
+      this._playAudioAlert = function() {
+        if (this.elAlertSound.components !== undefined && this.elAlertSound.components.sound !== undefined) {
+         this.elAlertSound.components.sound.playSound();
+        }
+      }
+      /**
+      * MOBILE PATCH TO PLAY VIDEO
+      */
+      this._mobileFriendly = function() {
+        if (AFRAME.utils.device.isMobile()) {
+          var that = this;
+          let video_permission        = document.getElementById('video-permission');
+         let video_permission_button = document.getElementById('video-permission-button');
+          video_permission.style.display = 'block';
+          video_permission_button.addEventListener("click", function() {
+            video_permission.style.display = 'none';
+            that.elVideo.play();
+            that.elVideo.pause();
+          }, false);
+        }
+      }
+      this.init = function() {
+        this._initElements();
+        //this._determinateProgressWidth();
+        this.setProgress(this.current_progress);
+        this._addPlayerEvents();
+        this._addControlsEvent();
+        this._addProgressEvent();
+        this._mobileFriendly();
+      }
+      this.init();
+    }
+      let scene = document.querySelector('a-scene');
+      var cursor = document.querySelector('a-cursor');
+      /**
+      * CINEMA MODE
+      */
+      scene.lightOff = function() {
+        scene.islightOn = true;
+        scene.removeAttribute('animation__fogback');
+        scene.setAttribute('animation__fog', "property: fog.color; to: #0c192a; dur: 800; easing: easeInQuad;");
+      }
+      scene.lightOn = function() {
+        scene.islightOn = false;
+        scene.removeAttribute('animation__fog');
+        scene.setAttribute('animation__fogback', "property: fog.color; to: #dbdedb; dur: 800");
+      }
+      /**
+      * AVideoPlayer
+      */
+      var videoPlayer = new AVideoPlayer();
+      document.querySelector('#control-play').addEventListener('click', function () {
+        if (videoPlayer.paused) {
+          scene.lightOn()
+        } else {
+          scene.lightOff();
+        }
+      });
+
+    </script>
+  </body>
+</html>
